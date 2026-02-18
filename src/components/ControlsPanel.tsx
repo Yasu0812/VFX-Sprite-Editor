@@ -1,4 +1,4 @@
-import type { BlendMode, GridSettings, PlaybackSettings, PivotPoint, RenderSettings } from '../types';
+import type { AnimationFrame, BlendMode, GridSettings, PlaybackSettings, PivotPoint, RenderSettings } from '../types';
 
 interface ControlsPanelProps {
   spriteSize: { width: number; height: number } | null;
@@ -6,10 +6,13 @@ interface ControlsPanelProps {
   playback: PlaybackSettings;
   render: RenderSettings;
   pivot: PivotPoint;
-  totalFrames: number;
+  frames: AnimationFrame[];
   onGridChange: (grid: GridSettings) => void;
   onPlaybackChange: (next: PlaybackSettings) => void;
   onRenderChange: (next: RenderSettings) => void;
+  onFrameChange: (index: number, frame: AnimationFrame) => void;
+  onMoveFrame: (index: number, direction: 'up' | 'down') => void;
+  onRemoveFrame: (index: number) => void;
   onJumpFrame: (kind: 'first' | 'last') => void;
   onExport: () => void;
 }
@@ -22,10 +25,13 @@ export const ControlsPanel = ({
   playback,
   render,
   pivot,
-  totalFrames,
+  frames,
   onGridChange,
   onPlaybackChange,
   onRenderChange,
+  onFrameChange,
+  onMoveFrame,
+  onRemoveFrame,
   onJumpFrame,
   onExport,
 }: ControlsPanelProps) => {
@@ -56,7 +62,7 @@ export const ControlsPanel = ({
         </label>
       </div>
 
-      <p className="muted">Total Frames: <strong>{totalFrames}</strong></p>
+      <p className="muted">Frames in Sequence: <strong>{frames.length}</strong></p>
       <p className="muted">Sprite Size: <strong>{spriteSize ? `${spriteSize.width}×${spriteSize.height}` : 'No sprite loaded'}</strong></p>
 
       <div className="playback-row">
@@ -74,7 +80,7 @@ export const ControlsPanel = ({
       </div>
 
       <label>
-        FPS: {playback.fps}
+        Fallback FPS: {playback.fps}
         <input
           type="range"
           min={1}
@@ -110,7 +116,7 @@ export const ControlsPanel = ({
       </label>
 
       <label>
-        Opacity: {render.opacity.toFixed(2)}
+        Global Opacity: {render.opacity.toFixed(2)}
         <input
           type="range"
           min={0}
@@ -122,7 +128,7 @@ export const ControlsPanel = ({
       </label>
 
       <label>
-        Scale: {render.scale.toFixed(2)}
+        Global Scale: {render.scale.toFixed(2)}
         <input
           type="range"
           min={0.1}
@@ -136,6 +142,113 @@ export const ControlsPanel = ({
       <p className="muted">
         Pivot (normalized): ({pivot.x.toFixed(3)}, {pivot.y.toFixed(3)})
       </p>
+
+      <div className="frames-list">
+        <h3>Frame Sequence</h3>
+        {frames.length === 0 && <p className="muted">No frames yet. Add one from selection.</p>}
+        {frames.map((frame, index) => (
+          <article key={frame.id} className="frame-card">
+            <p className="muted">#{index + 1} {frame.selection.width}×{frame.selection.height} @ {frame.selection.x},{frame.selection.y}</p>
+            <div className="control-grid">
+              <label>
+                Duration (ms)
+                <input
+                  type="number"
+                  min={16}
+                  value={frame.durationMs}
+                  onChange={(e) => onFrameChange(index, { ...frame, durationMs: Math.max(16, Number(e.target.value) || 16) })}
+                />
+              </label>
+              <label>
+                Tween Frames
+                <input
+                  type="number"
+                  min={0}
+                  value={frame.tween?.tweenFrames ?? 0}
+                  onChange={(e) => onFrameChange(index, {
+                    ...frame,
+                    tween: { ...(frame.tween ?? { tweenFrames: 0 }), tweenFrames: Math.max(0, Number(e.target.value) || 0) },
+                  })}
+                />
+              </label>
+              <label>
+                Scale
+                <input
+                  type="number"
+                  step={0.1}
+                  min={0.1}
+                  value={frame.scale}
+                  onChange={(e) => onFrameChange(index, { ...frame, scale: Math.max(0.1, Number(e.target.value) || 1) })}
+                />
+              </label>
+              <label>
+                Scale To
+                <input
+                  type="number"
+                  step={0.1}
+                  min={0.1}
+                  value={frame.tween?.scaleTo ?? frame.scale}
+                  onChange={(e) => onFrameChange(index, {
+                    ...frame,
+                    tween: { ...(frame.tween ?? { tweenFrames: 0 }), scaleTo: Math.max(0.1, Number(e.target.value) || frame.scale) },
+                  })}
+                />
+              </label>
+              <label>
+                Rotation (deg)
+                <input
+                  type="number"
+                  step={1}
+                  value={frame.rotation}
+                  onChange={(e) => onFrameChange(index, { ...frame, rotation: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <label>
+                Rotation To
+                <input
+                  type="number"
+                  step={1}
+                  value={frame.tween?.rotationTo ?? frame.rotation}
+                  onChange={(e) => onFrameChange(index, {
+                    ...frame,
+                    tween: { ...(frame.tween ?? { tweenFrames: 0 }), rotationTo: Number(e.target.value) || 0 },
+                  })}
+                />
+              </label>
+              <label>
+                Alpha
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={frame.alpha}
+                  onChange={(e) => onFrameChange(index, { ...frame, alpha: Math.max(0, Math.min(1, Number(e.target.value) || 0)) })}
+                />
+              </label>
+              <label>
+                Alpha To
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={frame.tween?.alphaTo ?? frame.alpha}
+                  onChange={(e) => onFrameChange(index, {
+                    ...frame,
+                    tween: { ...(frame.tween ?? { tweenFrames: 0 }), alphaTo: Math.max(0, Math.min(1, Number(e.target.value) || 0)) },
+                  })}
+                />
+              </label>
+            </div>
+            <div className="playback-row">
+              <button type="button" className="button secondary" onClick={() => onMoveFrame(index, 'up')} disabled={index === 0}>Up</button>
+              <button type="button" className="button secondary" onClick={() => onMoveFrame(index, 'down')} disabled={index === frames.length - 1}>Down</button>
+            </div>
+            <button type="button" className="button secondary" onClick={() => onRemoveFrame(index)}>Remove</button>
+          </article>
+        ))}
+      </div>
 
       <button type="button" className="button export" onClick={onExport}>Export JSON</button>
     </section>
