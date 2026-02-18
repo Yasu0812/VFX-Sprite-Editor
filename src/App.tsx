@@ -39,6 +39,7 @@ function App() {
   const [render, setRender] = useState<RenderSettings>(defaultRender);
   const [pivot, setPivot] = useState<PivotPoint>(defaultPivot);
   const [frames, setFrames] = useState<AnimationFrame[]>([]);
+  const [editingFrameIndex, setEditingFrameIndex] = useState<number | null>(null);
   const [playhead, setPlayhead] = useState<PlaybackState>({ frameIndex: 0, tweenStep: 0, tweenProgress: 0 });
 
   const totalFrames = useMemo(() => frames.length, [frames.length]);
@@ -100,12 +101,20 @@ function App() {
           <SpriteLoader onLoad={(asset) => {
             setSprite(asset);
             setFrames([]);
+            setEditingFrameIndex(null);
           }} />
           <GridOverlay
             sprite={sprite}
             grid={grid}
             pivot={pivot}
+            frames={frames}
+            activeFrameIndex={playback.currentFrame}
+            editingFrameIndex={editingFrameIndex}
             onPivotChange={setPivot}
+            onEditFrameSelection={(index, selection) => {
+              setFrames((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, selection } : item)));
+            }}
+            onSelectionApplied={() => setEditingFrameIndex(null)}
             onAddFrame={(selection) => {
               setFrames((prev) => ([
                 ...prev,
@@ -147,6 +156,18 @@ function App() {
             onMoveFrame={onMoveFrame}
             onRemoveFrame={(index) => {
               setFrames((prev) => prev.filter((_, frameIndex) => frameIndex !== index));
+              setEditingFrameIndex((prev) => {
+                if (prev === null) return null;
+                if (prev === index) return null;
+                return prev > index ? prev - 1 : prev;
+              });
+            }}
+            editingFrameIndex={editingFrameIndex}
+            onToggleEditFrameSelection={setEditingFrameIndex}
+            onSelectFrame={(index) => {
+              const target = Math.max(0, Math.min(index, Math.max(0, totalFrames - 1)));
+              setPlayhead({ frameIndex: target, tweenStep: 0, tweenProgress: 0 });
+              setPlayback((prev) => ({ ...prev, currentFrame: target }));
             }}
             onJumpFrame={(kind) => {
               const target = kind === 'first' ? 0 : Math.max(0, totalFrames - 1);

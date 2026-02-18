@@ -182,3 +182,8 @@ input[type='range'] {
   margin-bottom: 10px;
   background: #11151d;
 }
+
+.frame-card.active {
+  border-color: #ffcd5c;
+  box-shadow: 0 0 0 1px rgba(255, 205, 92, 0.35);
+}

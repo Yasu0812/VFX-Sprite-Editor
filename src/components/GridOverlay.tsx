@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import type { FrameSelection, GridSettings, PivotPoint, SpriteAsset } from '../types';
+import type { AnimationFrame, FrameSelection, GridSettings, PivotPoint, SpriteAsset } from '../types';
 
 interface GridOverlayProps {
   sprite: SpriteAsset | null;
   grid: GridSettings;
   pivot: PivotPoint;
+  frames: AnimationFrame[];
+  activeFrameIndex: number;
+  editingFrameIndex?: number | null;
   onPivotChange: (pivot: PivotPoint) => void;
   onAddFrame: (selection: FrameSelection) => void;
+  onEditFrameSelection?: (frameIndex: number, selection: FrameSelection) => void;
+  onSelectionApplied?: () => void;
 }
 
 interface DragState {
@@ -39,12 +44,36 @@ const normalizeSelection = (drag: DragState, sprite: SpriteAsset): FrameSelectio
   };
 };
 
-export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: GridOverlayProps) => {
+export const GridOverlay = ({
+  sprite,
+  grid,
+  pivot,
+  frames,
+  activeFrameIndex,
+  editingFrameIndex = null,
+  onPivotChange,
+  onAddFrame,
+  onEditFrameSelection,
+  onSelectionApplied,
+}: GridOverlayProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('rectangle');
   const [drag, setDrag] = useState<DragState | null>(null);
   const [selection, setSelection] = useState<FrameSelection | null>(null);
   const [gridSelection, setGridSelection] = useState<GridSelectionState>({ column: 0, row: 0, widthCells: 1, heightCells: 1 });
+
+  const isEditing = editingFrameIndex !== null && editingFrameIndex !== undefined;
+  const activeFrameSelection = useMemo(() => {
+    if (!frames.length) return null;
+    const frame = frames[Math.max(0, Math.min(activeFrameIndex, frames.length - 1))];
+    return frame?.selection ?? null;
+  }, [activeFrameIndex, frames]);
+
+  const editingFrameSelection = useMemo(() => {
+    if (editingFrameIndex === null || editingFrameIndex === undefined) return null;
+    const frame = frames[editingFrameIndex];
+    return frame?.selection ?? null;
+  }, [editingFrameIndex, frames]);
 
   const columnLimit = Math.max(1, grid.columns);
   const rowLimit = Math.max(1, grid.rows);
@@ -74,9 +103,18 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: 
 
   const liveSelection = useMemo(() => {
     if (!sprite) return null;
-    if (!drag) return selection;
-    return normalizeSelection(drag, sprite);
-  }, [drag, selection, sprite]);
+    if (drag) return normalizeSelection(drag, sprite);
+    if (isEditing) return editingFrameSelection;
+    if (selectionMode === 'grid') {
+      return {
+        x: gridSelectionPixels.x,
+        y: gridSelectionPixels.y,
+        width: gridSelectionPixels.width,
+        height: gridSelectionPixels.height,
+      };
+    }
+    return selection ?? activeFrameSelection;
+  }, [activeFrameSelection, drag, editingFrameSelection, gridSelectionPixels.height, gridSelectionPixels.width, gridSelectionPixels.x, gridSelectionPixels.y, isEditing, selection, selectionMode, sprite]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -112,14 +150,12 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: 
       ctx.stroke();
     }
 
-    const highlightSelection = selectionMode === 'rectangle' ? liveSelection : gridSelectionPixels;
-
-    if (highlightSelection) {
+    if (liveSelection) {
       ctx.fillStyle = 'rgba(255, 205, 92, 0.2)';
-      ctx.fillRect(highlightSelection.x, highlightSelection.y, highlightSelection.width, highlightSelection.height);
+      ctx.fillRect(liveSelection.x, liveSelection.y, liveSelection.width, liveSelection.height);
       ctx.strokeStyle = '#ffcd5c';
       ctx.lineWidth = 2;
-      ctx.strokeRect(highlightSelection.x + 0.5, highlightSelection.y + 0.5, highlightSelection.width, highlightSelection.height);
+      ctx.strokeRect(liveSelection.x + 0.5, liveSelection.y + 0.5, liveSelection.width, liveSelection.height);
     }
 
     const pivotX = pivot.x * sprite.width;
@@ -133,7 +169,7 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: 
     ctx.moveTo(pivotX, pivotY - 8);
     ctx.lineTo(pivotX, pivotY + 8);
     ctx.stroke();
-  }, [grid.frameHeight, grid.frameWidth, gridSelectionPixels, liveSelection, pivot.x, pivot.y, selectionMode, sprite]);
+  }, [grid.frameHeight, grid.frameWidth, liveSelection, pivot.x, pivot.y, sprite]);
 
   const updateGridSelection = (key: keyof GridSelectionState, rawValue: number) => {
     const safeValue = Number.isFinite(rawValue) ? Math.floor(rawValue) : 0;
@@ -172,22 +208,24 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: 
   return (
     <section className="panel">
       <h2>Sprite Sheet + Grid Overlay</h2>
-      <div className="mode-tabs" role="tablist" aria-label="Frame selection mode">
-        <button
-          type="button"
-          className={`button secondary tab-button ${selectionMode === 'rectangle' ? 'active' : ''}`}
-          onClick={() => setSelectionMode('rectangle')}
-        >
-          Rectangle Selection
-        </button>
-        <button
-          type="button"
-          className={`button secondary tab-button ${selectionMode === 'grid' ? 'active' : ''}`}
-          onClick={() => setSelectionMode('grid')}
-        >
-          Column / Row Selection
-        </button>
-      </div>
+      {!isEditing && (
+        <div className="mode-tabs" role="tablist" aria-label="Frame selection mode">
+          <button
+            type="button"
+            className={`button secondary tab-button ${selectionMode === 'rectangle' ? 'active' : ''}`}
+            onClick={() => setSelectionMode('rectangle')}
+          >
+            Rectangle Selection
+          </button>
+          <button
+            type="button"
+            className={`button secondary tab-button ${selectionMode === 'grid' ? 'active' : ''}`}
+            onClick={() => setSelectionMode('grid')}
+          >
+            Column / Row Selection
+          </button>
+        </div>
+      )}
 
       <div className="canvas-wrap">
         <canvas
@@ -196,25 +234,30 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: 
           width={sprite?.width ?? 512}
           height={sprite?.height ?? 512}
           onMouseDown={(event) => {
-            if (selectionMode !== 'rectangle') return;
+            if (!isEditing && selectionMode !== 'rectangle') return;
             const point = toCanvasPoint(event);
             if (!point) return;
             setDrag({ startX: point.x, startY: point.y, currentX: point.x, currentY: point.y });
           }}
           onMouseMove={(event) => {
-            if (selectionMode !== 'rectangle') return;
+            if (!isEditing && selectionMode !== 'rectangle') return;
             const point = toCanvasPoint(event);
             if (!point || !drag) return;
             setDrag({ ...drag, currentX: point.x, currentY: point.y });
           }}
           onMouseUp={(event) => {
-            if (selectionMode !== 'rectangle') return;
+            if (!isEditing && selectionMode !== 'rectangle') return;
             const point = toCanvasPoint(event);
             if (!point || !drag || !sprite) return;
             const finalDrag = { ...drag, currentX: point.x, currentY: point.y };
             const nextSelection = normalizeSelection(finalDrag, sprite);
             setSelection(nextSelection);
             setDrag(null);
+
+            if (isEditing && editingFrameIndex !== null && onEditFrameSelection) {
+              onEditFrameSelection(editingFrameIndex, nextSelection);
+              onSelectionApplied?.();
+            }
 
             const rect = event.currentTarget.getBoundingClientRect();
             const x = (event.clientX - rect.left) / rect.width;
@@ -225,7 +268,14 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: 
         />
       </div>
 
-      {selectionMode === 'rectangle' ? (
+      {isEditing ? (
+        <>
+          <p className="muted">
+            Selection: {liveSelection ? `${liveSelection.width}×${liveSelection.height} at (${liveSelection.x}, ${liveSelection.y})` : 'Drag on canvas to select a frame rectangle'}
+          </p>
+          <p className="muted">Editing frame #{(editingFrameIndex ?? 0) + 1}. Drag on canvas to update selection.</p>
+        </>
+      ) : selectionMode === 'rectangle' ? (
         <>
           <p className="muted">
             Selection: {liveSelection ? `${liveSelection.width}×${liveSelection.height} at (${liveSelection.x}, ${liveSelection.y})` : 'Drag on canvas to select a frame rectangle'}
