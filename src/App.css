@@ -47,6 +47,18 @@
   font-size: 16px;
 }
 
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tab-button.active {
+  border-color: #7aadff;
+  background: #3a4f75;
+}
+
 .canvas-wrap {
   width: 100%;
   overflow: auto;
@@ -129,6 +141,13 @@ input[type='range'] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.nudge-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  max-width: 220px;
 }
 
 .hidden-input {
