@@ -14,11 +14,41 @@ export interface GridSettings {
   rows: number;
 }
 
+export interface FrameSelection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface TweenSettings {
+  tweenFrames: number;
+  scaleTo?: number;
+  rotationTo?: number;
+  alphaTo?: number;
+}
+
+export interface AnimationFrame {
+  id: string;
+  selection: FrameSelection;
+  durationMs: number;
+  scale: number;
+  rotation: number;
+  alpha: number;
+  tween?: TweenSettings;
+}
+
 export interface PlaybackSettings {
   fps: number;
   loop: boolean;
   isPlaying: boolean;
   currentFrame: number;
+}
+
+export interface PlaybackState {
+  frameIndex: number;
+  tweenStep: number;
+  tweenProgress: number;
 }
 
 export interface RenderSettings {
