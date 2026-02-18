@@ -13,6 +13,9 @@ interface ControlsPanelProps {
   onFrameChange: (index: number, frame: AnimationFrame) => void;
   onMoveFrame: (index: number, direction: 'up' | 'down') => void;
   onRemoveFrame: (index: number) => void;
+  onSelectFrame: (index: number) => void;
+  editingFrameIndex: number | null;
+  onToggleEditFrameSelection: (index: number | null) => void;
   onJumpFrame: (kind: 'first' | 'last') => void;
   onExport: () => void;
 }
@@ -32,6 +35,9 @@ export const ControlsPanel = ({
   onFrameChange,
   onMoveFrame,
   onRemoveFrame,
+  onSelectFrame,
+  editingFrameIndex,
+  onToggleEditFrameSelection,
   onJumpFrame,
   onExport,
 }: ControlsPanelProps) => {
@@ -51,14 +57,6 @@ export const ControlsPanel = ({
         <label>
           Frame Height
           <input type="number" min={1} value={grid.frameHeight} onChange={(e) => updateGrid('frameHeight', Number(e.target.value))} />
-        </label>
-        <label>
-          Columns
-          <input type="number" min={1} value={grid.columns} onChange={(e) => updateGrid('columns', Number(e.target.value))} />
-        </label>
-        <label>
-          Rows
-          <input type="number" min={1} value={grid.rows} onChange={(e) => updateGrid('rows', Number(e.target.value))} />
         </label>
       </div>
 
@@ -147,8 +145,36 @@ export const ControlsPanel = ({
         <h3>Frame Sequence</h3>
         {frames.length === 0 && <p className="muted">No frames yet. Add one from selection.</p>}
         {frames.map((frame, index) => (
-          <article key={frame.id} className="frame-card">
+          <article
+            key={frame.id}
+            className={`frame-card ${playback.currentFrame === index ? 'active' : ''}`}
+            onClick={() => onSelectFrame(index)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectFrame(index);
+              }
+            }}
+          >
             <p className="muted">#{index + 1} {frame.selection.width}×{frame.selection.height} @ {frame.selection.x},{frame.selection.y}</p>
+            <div className="playback-row">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (editingFrameIndex === index) {
+                    onToggleEditFrameSelection(null);
+                  } else {
+                    onToggleEditFrameSelection(index);
+                  }
+                }}
+              >
+                {editingFrameIndex === index ? '座標編集を終了' : '座標を編集'}
+              </button>
+            </div>
             <div className="control-grid">
               <label>
                 Duration (ms)
@@ -156,6 +182,7 @@ export const ControlsPanel = ({
                   type="number"
                   min={16}
                   value={frame.durationMs}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, { ...frame, durationMs: Math.max(16, Number(e.target.value) || 16) })}
                 />
               </label>
@@ -165,6 +192,7 @@ export const ControlsPanel = ({
                   type="number"
                   min={0}
                   value={frame.tween?.tweenFrames ?? 0}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, {
                     ...frame,
                     tween: { ...(frame.tween ?? { tweenFrames: 0 }), tweenFrames: Math.max(0, Number(e.target.value) || 0) },
@@ -178,6 +206,7 @@ export const ControlsPanel = ({
                   step={0.1}
                   min={0.1}
                   value={frame.scale}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, { ...frame, scale: Math.max(0.1, Number(e.target.value) || 1) })}
                 />
               </label>
@@ -188,6 +217,7 @@ export const ControlsPanel = ({
                   step={0.1}
                   min={0.1}
                   value={frame.tween?.scaleTo ?? frame.scale}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, {
                     ...frame,
                     tween: { ...(frame.tween ?? { tweenFrames: 0 }), scaleTo: Math.max(0.1, Number(e.target.value) || frame.scale) },
@@ -200,6 +230,7 @@ export const ControlsPanel = ({
                   type="number"
                   step={1}
                   value={frame.rotation}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, { ...frame, rotation: Number(e.target.value) || 0 })}
                 />
               </label>
@@ -209,6 +240,7 @@ export const ControlsPanel = ({
                   type="number"
                   step={1}
                   value={frame.tween?.rotationTo ?? frame.rotation}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, {
                     ...frame,
                     tween: { ...(frame.tween ?? { tweenFrames: 0 }), rotationTo: Number(e.target.value) || 0 },
@@ -223,6 +255,7 @@ export const ControlsPanel = ({
                   max={1}
                   step={0.01}
                   value={frame.alpha}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, { ...frame, alpha: Math.max(0, Math.min(1, Number(e.target.value) || 0)) })}
                 />
               </label>
@@ -234,6 +267,7 @@ export const ControlsPanel = ({
                   max={1}
                   step={0.01}
                   value={frame.tween?.alphaTo ?? frame.alpha}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onFrameChange(index, {
                     ...frame,
                     tween: { ...(frame.tween ?? { tweenFrames: 0 }), alphaTo: Math.max(0, Math.min(1, Number(e.target.value) || 0)) },
@@ -242,10 +276,10 @@ export const ControlsPanel = ({
               </label>
             </div>
             <div className="playback-row">
-              <button type="button" className="button secondary" onClick={() => onMoveFrame(index, 'up')} disabled={index === 0}>Up</button>
-              <button type="button" className="button secondary" onClick={() => onMoveFrame(index, 'down')} disabled={index === frames.length - 1}>Down</button>
+              <button type="button" className="button secondary" onClick={(e) => { e.stopPropagation(); onMoveFrame(index, 'up'); }} disabled={index === 0}>Up</button>
+              <button type="button" className="button secondary" onClick={(e) => { e.stopPropagation(); onMoveFrame(index, 'down'); }} disabled={index === frames.length - 1}>Down</button>
             </div>
-            <button type="button" className="button secondary" onClick={() => onRemoveFrame(index)}>Remove</button>
+            <button type="button" className="button secondary" onClick={(e) => { e.stopPropagation(); onRemoveFrame(index); }}>Remove</button>
           </article>
         ))}
       </div>
