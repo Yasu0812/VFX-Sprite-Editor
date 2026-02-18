@@ -1,25 +1,54 @@
-import { useEffect, useRef } from 'react';
-import type { GridSettings, PivotPoint, RenderSettings, SpriteAsset } from '../types';
-import { drawCheckerBackground, drawFrame } from '../utils/canvasRender';
+import { useEffect, useMemo, useRef } from 'react';
+import type { AnimationFrame, PivotPoint, RenderSettings, SpriteAsset } from '../types';
+import { drawCheckerBackground } from '../utils/canvasRender';
 
 interface PreviewCanvasProps {
   sprite: SpriteAsset | null;
-  grid: GridSettings;
-  currentFrame: number;
-  totalFrames: number;
+  frames: AnimationFrame[];
+  playhead: {
+    frameIndex: number;
+    tweenStep: number;
+    tweenProgress: number;
+  };
   renderSettings: RenderSettings;
   pivot: PivotPoint;
 }
 
+const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+
 export const PreviewCanvas = ({
   sprite,
-  grid,
-  currentFrame,
-  totalFrames,
+  frames,
+  playhead,
   renderSettings,
   pivot,
 }: PreviewCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const composedFrame = useMemo(() => {
+    const base = frames[playhead.frameIndex];
+    if (!base) return null;
+
+    const tweenFrames = Math.max(0, base.tween?.tweenFrames ?? 0);
+    if (tweenFrames === 0 || playhead.tweenStep === 0) {
+      return {
+        ...base,
+        scale: base.scale,
+        rotation: base.rotation,
+        alpha: base.alpha,
+      };
+    }
+
+    const next = frames[(playhead.frameIndex + 1) % frames.length] ?? base;
+    const t = Math.min(1, (playhead.tweenStep + playhead.tweenProgress) / (tweenFrames + 1));
+
+    return {
+      ...base,
+      scale: lerp(base.scale, base.tween?.scaleTo ?? next.scale, t),
+      rotation: lerp(base.rotation, base.tween?.rotationTo ?? next.rotation, t),
+      alpha: lerp(base.alpha, base.tween?.alphaTo ?? next.alpha, t),
+    };
+  }, [frames, playhead.frameIndex, playhead.tweenProgress, playhead.tweenStep]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,30 +60,36 @@ export const PreviewCanvas = ({
     ctx.clearRect(0, 0, width, height);
     drawCheckerBackground(ctx, width, height);
 
-    if (!sprite || totalFrames <= 0) return;
+    if (!sprite || !composedFrame) return;
 
-    const drawW = grid.frameWidth * renderSettings.scale;
-    const drawH = grid.frameHeight * renderSettings.scale;
     const centerX = width / 2;
     const centerY = height / 2;
-    const x = centerX - drawW * pivot.x;
-    const y = centerY - drawH * pivot.y;
+    const drawW = composedFrame.selection.width * renderSettings.scale * composedFrame.scale;
+    const drawH = composedFrame.selection.height * renderSettings.scale * composedFrame.scale;
 
-    if (renderSettings.onionSkin && currentFrame === totalFrames - 1) {
-      drawFrame(ctx, sprite.image, 0, grid, { x, y, width: drawW, height: drawH }, {
-        opacity: 0.2,
-        blendMode: 'normal',
-      });
-    }
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate((composedFrame.rotation * Math.PI) / 180);
+    ctx.scale(composedFrame.scale, composedFrame.scale);
+    ctx.globalAlpha = Math.max(0, Math.min(1, composedFrame.alpha * renderSettings.opacity));
+    const blendModeMap = { normal: 'source-over', additive: 'lighter', screen: 'screen', multiply: 'multiply' } as const;
+    ctx.globalCompositeOperation = blendModeMap[renderSettings.blendMode];
 
-    drawFrame(
-      ctx,
+    const source = composedFrame.selection;
+    const destinationX = -drawW * pivot.x;
+    const destinationY = -drawH * pivot.y;
+    ctx.drawImage(
       sprite.image,
-      currentFrame,
-      grid,
-      { x, y, width: drawW, height: drawH },
-      { opacity: renderSettings.opacity, blendMode: renderSettings.blendMode },
+      source.x,
+      source.y,
+      source.width,
+      source.height,
+      destinationX,
+      destinationY,
+      drawW,
+      drawH,
     );
+    ctx.restore();
 
     ctx.strokeStyle = '#ff7e7e';
     ctx.lineWidth = 1;
@@ -64,7 +99,7 @@ export const PreviewCanvas = ({
     ctx.moveTo(centerX, centerY - 10);
     ctx.lineTo(centerX, centerY + 10);
     ctx.stroke();
-  }, [currentFrame, grid, pivot, renderSettings, sprite, totalFrames]);
+  }, [composedFrame, pivot.x, pivot.y, renderSettings, sprite]);
 
   return (
     <section className="panel">

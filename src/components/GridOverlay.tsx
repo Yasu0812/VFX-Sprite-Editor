@@ -1,15 +1,45 @@
-import { useEffect, useRef } from 'react';
-import type { GridSettings, PivotPoint, SpriteAsset } from '../types';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import type { FrameSelection, GridSettings, PivotPoint, SpriteAsset } from '../types';
 
 interface GridOverlayProps {
   sprite: SpriteAsset | null;
   grid: GridSettings;
   pivot: PivotPoint;
   onPivotChange: (pivot: PivotPoint) => void;
+  onAddFrame: (selection: FrameSelection) => void;
 }
 
-export const GridOverlay = ({ sprite, grid, pivot, onPivotChange }: GridOverlayProps) => {
+interface DragState {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+}
+
+const normalizeSelection = (drag: DragState, sprite: SpriteAsset): FrameSelection => {
+  const x = Math.max(0, Math.min(drag.startX, drag.currentX));
+  const y = Math.max(0, Math.min(drag.startY, drag.currentY));
+  const right = Math.min(sprite.width, Math.max(drag.startX, drag.currentX));
+  const bottom = Math.min(sprite.height, Math.max(drag.startY, drag.currentY));
+
+  return {
+    x: Math.floor(x),
+    y: Math.floor(y),
+    width: Math.max(1, Math.floor(right - x)),
+    height: Math.max(1, Math.floor(bottom - y)),
+  };
+};
+
+export const GridOverlay = ({ sprite, grid, pivot, onPivotChange, onAddFrame }: GridOverlayProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [selection, setSelection] = useState<FrameSelection | null>(null);
+
+  const liveSelection = useMemo(() => {
+    if (!sprite) return null;
+    if (!drag) return selection;
+    return normalizeSelection(drag, sprite);
+  }, [drag, selection, sprite]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -45,6 +75,14 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange }: GridOverlayP
       ctx.stroke();
     }
 
+    if (liveSelection) {
+      ctx.fillStyle = 'rgba(255, 205, 92, 0.2)';
+      ctx.fillRect(liveSelection.x, liveSelection.y, liveSelection.width, liveSelection.height);
+      ctx.strokeStyle = '#ffcd5c';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(liveSelection.x + 0.5, liveSelection.y + 0.5, liveSelection.width, liveSelection.height);
+    }
+
     const pivotX = pivot.x * sprite.width;
     const pivotY = pivot.y * sprite.height;
 
@@ -56,7 +94,18 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange }: GridOverlayP
     ctx.moveTo(pivotX, pivotY - 8);
     ctx.lineTo(pivotX, pivotY + 8);
     ctx.stroke();
-  }, [grid.frameHeight, grid.frameWidth, pivot.x, pivot.y, sprite]);
+  }, [grid.frameHeight, grid.frameWidth, liveSelection, pivot.x, pivot.y, sprite]);
+
+  const toCanvasPoint = (event: MouseEvent<HTMLCanvasElement>) => {
+    if (!sprite) return null;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const scaleX = sprite.width / rect.width;
+    const scaleY = sprite.height / rect.height;
+    return {
+      x: Math.max(0, Math.min(sprite.width, (event.clientX - rect.left) * scaleX)),
+      y: Math.max(0, Math.min(sprite.height, (event.clientY - rect.top) * scaleY)),
+    };
+  };
 
   return (
     <section className="panel">
@@ -67,18 +116,44 @@ export const GridOverlay = ({ sprite, grid, pivot, onPivotChange }: GridOverlayP
           className="editor-canvas"
           width={sprite?.width ?? 512}
           height={sprite?.height ?? 512}
-          onClick={(event) => {
-            if (!sprite) return;
+          onMouseDown={(event) => {
+            const point = toCanvasPoint(event);
+            if (!point) return;
+            setDrag({ startX: point.x, startY: point.y, currentX: point.x, currentY: point.y });
+          }}
+          onMouseMove={(event) => {
+            const point = toCanvasPoint(event);
+            if (!point || !drag) return;
+            setDrag({ ...drag, currentX: point.x, currentY: point.y });
+          }}
+          onMouseUp={(event) => {
+            const point = toCanvasPoint(event);
+            if (!point || !drag || !sprite) return;
+            const finalDrag = { ...drag, currentX: point.x, currentY: point.y };
+            const nextSelection = normalizeSelection(finalDrag, sprite);
+            setSelection(nextSelection);
+            setDrag(null);
+
             const rect = event.currentTarget.getBoundingClientRect();
             const x = (event.clientX - rect.left) / rect.width;
             const y = (event.clientY - rect.top) / rect.height;
-            onPivotChange({
-              x: Math.max(0, Math.min(1, x)),
-              y: Math.max(0, Math.min(1, y)),
-            });
+            onPivotChange({ x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) });
           }}
+          onMouseLeave={() => setDrag(null)}
         />
       </div>
+
+      <p className="muted">
+        Selection: {liveSelection ? `${liveSelection.width}×${liveSelection.height} at (${liveSelection.x}, ${liveSelection.y})` : 'Drag on canvas to select a frame rectangle'}
+      </p>
+      <button
+        type="button"
+        className="button"
+        onClick={() => liveSelection && onAddFrame(liveSelection)}
+        disabled={!liveSelection}
+      >
+        Add Frame from Selection
+      </button>
     </section>
   );
 };

@@ -146,3 +146,20 @@ input[type='range'] {
     grid-template-columns: 1fr;
   }
 }
+
+.frames-list {
+  margin: 12px 0;
+}
+
+.frames-list h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.frame-card {
+  border: 1px solid #394154;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #11151d;
+}
