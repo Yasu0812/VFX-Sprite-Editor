@@ -1,55 +1,48 @@
-export interface Sprite {
+export type BlendMode = 'normal' | 'screen' | 'additive' | 'multiply';
+
+export interface SpriteAsset {
   image: HTMLImageElement;
-  x: number;
-  y: number;
+  name: string;
   width: number;
   height: number;
 }
 
-export interface Particle {
+export interface GridSettings {
+  frameWidth: number;
+  frameHeight: number;
+  columns: number;
+  rows: number;
+}
+
+export interface PlaybackSettings {
+  fps: number;
+  loop: boolean;
+  isPlaying: boolean;
+  currentFrame: number;
+}
+
+export interface RenderSettings {
+  blendMode: BlendMode;
+  opacity: number;
+  scale: number;
+  onionSkin: boolean;
+}
+
+export interface PivotPoint {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  size: number;
-  color: string;
-  alpha: number;
 }
 
-export interface VFXEffect {
-  type: 'particle' | 'glow' | 'trail';
-  enabled: boolean;
-  intensity: number;
-}
-
-export interface ParticleConfig {
-  count: number;
-  speed: number;
-  size: number;
-  color: string;
-  lifetime: number;
-}
-
-export interface GlowConfig {
-  color: string;
-  blur: number;
-  intensity: number;
-}
-
-export interface TrailConfig {
-  length: number;
-  fadeSpeed: number;
-  width: number;
-}
-
-export interface EditorState {
-  sprite: Sprite | null;
-  effects: {
-    particle: ParticleConfig;
-    glow: GlowConfig;
-    trail: TrailConfig;
-  };
-  activeEffect: 'particle' | 'glow' | 'trail' | 'none';
+export interface ExportConfig {
+  frameWidth: number;
+  frameHeight: number;
+  cols: number;
+  rows: number;
+  fps: number;
+  loop: boolean;
+  pivotX: number;
+  pivotY: number;
+  blendMode: BlendMode;
+  opacity: number;
+  scale: number;
 }

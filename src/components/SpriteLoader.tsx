@@ -1,83 +1,50 @@
 import { useRef } from 'react';
-import { loadImage } from '../utils/canvas';
-import type { Sprite } from '../types';
+import type { SpriteAsset } from '../types';
 
 interface SpriteLoaderProps {
-  onSpriteLoad: (sprite: Sprite) => void;
+  onLoad: (sprite: SpriteAsset) => void;
 }
 
-export const SpriteLoader: React.FC<SpriteLoaderProps> = ({ onSpriteLoad }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export const SpriteLoader = ({ onLoad }: SpriteLoaderProps) => {
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFile = async (file: File) => {
+    const imageUrl = URL.createObjectURL(file);
 
-    try {
-      const image = await loadImage(file);
-      
-      // Center the sprite on a standard canvas
-      const canvasWidth = 800;
-      const canvasHeight = 600;
-      
-      // Scale sprite to fit canvas if too large
-      let width = image.width;
-      let height = image.height;
-      const maxSize = 400;
-      
-      if (width > maxSize || height > maxSize) {
-        const scale = maxSize / Math.max(width, height);
-        width *= scale;
-        height *= scale;
-      }
-      
-      const x = (canvasWidth - width) / 2;
-      const y = (canvasHeight - height) / 2;
-      
-      onSpriteLoad({
-        image,
-        x,
-        y,
-        width,
-        height
-      });
-    } catch (error) {
-      console.error('Error loading sprite:', error);
-      alert('Failed to load image. Please try another file.');
-    }
-  };
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = imageUrl;
+    });
 
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
+    onLoad({
+      image,
+      name: file.name,
+      width: image.width,
+      height: image.height,
+    });
   };
 
   return (
-    <div style={{ marginBottom: '20px' }}>
+    <section className="panel">
+      <h2>Sprite Loading</h2>
       <input
-        ref={fileInputRef}
+        ref={inputRef}
+        className="hidden-input"
         type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-      />
-      <button
-        onClick={handleButtonClick}
-        style={{
-          padding: '12px 24px',
-          fontSize: '16px',
-          backgroundColor: '#4CAF50',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          width: '100%'
+        accept="image/png"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            void handleFile(file);
+          }
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#45a049')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#4CAF50')}
-      >
-        📁 Load Sprite Image
+      />
+      <button className="button" onClick={() => inputRef.current?.click()} type="button">
+        Upload PNG Sprite Sheet
       </button>
-    </div>
+      <p className="muted">Original image resolution is preserved for export and frame sampling.</p>
+    </section>
   );
 };
