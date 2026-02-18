@@ -10,8 +10,6 @@ import type { AnimationFrame, ExportConfig, GridSettings, PlaybackSettings, Pivo
 const defaultGrid: GridSettings = {
   frameWidth: 64,
   frameHeight: 64,
-  columns: 4,
-  rows: 4,
 };
 
 const defaultPlayback: PlaybackSettings = {
@@ -58,8 +56,6 @@ function App() {
     const data: ExportConfig & { frames: AnimationFrame[] } = {
       frameWidth: grid.frameWidth,
       frameHeight: grid.frameHeight,
-      cols: grid.columns,
-      rows: grid.rows,
       fps: playback.fps,
       loop: playback.loop,
       pivotX: pivot.x,

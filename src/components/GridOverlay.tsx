@@ -21,15 +21,6 @@ interface DragState {
   currentY: number;
 }
 
-type SelectionMode = 'rectangle' | 'grid';
-
-interface GridSelectionState {
-  column: number;
-  row: number;
-  widthCells: number;
-  heightCells: number;
-}
-
 const normalizeSelection = (drag: DragState, sprite: SpriteAsset): FrameSelection => {
   const x = Math.max(0, Math.min(drag.startX, drag.currentX));
   const y = Math.max(0, Math.min(drag.startY, drag.currentY));
@@ -57,7 +48,6 @@ export const GridOverlay = ({
   onSelectionApplied,
 }: GridOverlayProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('rectangle');
   const [drag, setDrag] = useState<DragState | null>(null);
   const [selection, setSelection] = useState<FrameSelection | null>(null);
   const [gridSelection, setGridSelection] = useState<GridSelectionState>({ column: 0, row: 0, widthCells: 1, heightCells: 1 });
@@ -78,28 +68,17 @@ export const GridOverlay = ({
   const columnLimit = Math.max(1, grid.columns);
   const rowLimit = Math.max(1, grid.rows);
 
-  const gridSelectionPixels = useMemo(() => {
-    const column = Math.max(0, Math.min(columnLimit - 1, Math.floor(gridSelection.column)));
-    const row = Math.max(0, Math.min(rowLimit - 1, Math.floor(gridSelection.row)));
-    const widthCells = Math.max(1, Math.min(columnLimit - column, Math.floor(gridSelection.widthCells)));
-    const heightCells = Math.max(1, Math.min(rowLimit - row, Math.floor(gridSelection.heightCells)));
+  const activeFrameSelection = useMemo(() => {
+    if (!frames.length) return null;
+    const frame = frames[Math.max(0, Math.min(activeFrameIndex, frames.length - 1))];
+    return frame?.selection ?? null;
+  }, [activeFrameIndex, frames]);
 
-    const x = column * grid.frameWidth;
-    const y = row * grid.frameHeight;
-    const maxPixelWidth = sprite ? Math.max(1, sprite.width - x) : widthCells * grid.frameWidth;
-    const maxPixelHeight = sprite ? Math.max(1, sprite.height - y) : heightCells * grid.frameHeight;
-
-    return {
-      x,
-      y,
-      width: Math.max(1, Math.min(widthCells * grid.frameWidth, maxPixelWidth)),
-      height: Math.max(1, Math.min(heightCells * grid.frameHeight, maxPixelHeight)),
-      column,
-      row,
-      widthCells,
-      heightCells,
-    };
-  }, [columnLimit, grid.frameHeight, grid.frameWidth, gridSelection.column, gridSelection.heightCells, gridSelection.row, gridSelection.widthCells, rowLimit, sprite]);
+  const editingFrameSelection = useMemo(() => {
+    if (editingFrameIndex === null || editingFrameIndex === undefined) return null;
+    const frame = frames[editingFrameIndex];
+    return frame?.selection ?? null;
+  }, [editingFrameIndex, frames]);
 
   const liveSelection = useMemo(() => {
     if (!sprite) return null;
@@ -205,6 +184,8 @@ export const GridOverlay = ({
     };
   };
 
+  const isEditing = editingFrameIndex !== null && editingFrameIndex !== undefined;
+
   return (
     <section className="panel">
       <h2>Sprite Sheet + Grid Overlay</h2>
@@ -290,76 +271,14 @@ export const GridOverlay = ({
           </button>
         </>
       ) : (
-        <>
-          <div className="control-grid">
-            <label>
-              Column
-              <input
-                type="number"
-                min={0}
-                max={Math.max(0, columnLimit - 1)}
-                value={gridSelectionPixels.column}
-                onChange={(e) => updateGridSelection('column', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              Row
-              <input
-                type="number"
-                min={0}
-                max={Math.max(0, rowLimit - 1)}
-                value={gridSelectionPixels.row}
-                onChange={(e) => updateGridSelection('row', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              Width (cells)
-              <input
-                type="number"
-                min={1}
-                max={columnLimit}
-                value={gridSelectionPixels.widthCells}
-                onChange={(e) => updateGridSelection('widthCells', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              Height (cells)
-              <input
-                type="number"
-                min={1}
-                max={rowLimit}
-                value={gridSelectionPixels.heightCells}
-                onChange={(e) => updateGridSelection('heightCells', Number(e.target.value))}
-              />
-            </label>
-          </div>
-
-          <div className="nudge-grid">
-            <button type="button" className="button secondary" onClick={() => nudgeGridSelection(0, -1)}>↑</button>
-            <div className="playback-row">
-              <button type="button" className="button secondary" onClick={() => nudgeGridSelection(-1, 0)}>←</button>
-              <button type="button" className="button secondary" onClick={() => nudgeGridSelection(1, 0)}>→</button>
-            </div>
-            <button type="button" className="button secondary" onClick={() => nudgeGridSelection(0, 1)}>↓</button>
-          </div>
-
-          <p className="muted">
-            Selection: {gridSelectionPixels.width}×{gridSelectionPixels.height} px at ({gridSelectionPixels.x}, {gridSelectionPixels.y}) / cell ({gridSelectionPixels.column}, {gridSelectionPixels.row})
-          </p>
-          <button
-            type="button"
-            className="button"
-            onClick={() => onAddFrame({
-              x: gridSelectionPixels.x,
-              y: gridSelectionPixels.y,
-              width: gridSelectionPixels.width,
-              height: gridSelectionPixels.height,
-            })}
-            disabled={!sprite}
-          >
-            Add Frame from Column / Row
-          </button>
-        </>
+        <button
+          type="button"
+          className="button"
+          onClick={() => liveSelection && onAddFrame(liveSelection)}
+          disabled={!liveSelection}
+        >
+          Add Frame from Selection
+        </button>
       )}
     </section>
   );
