@@ -17,7 +17,7 @@ const defaultGrid: GridSettings = {
 const defaultPlayback: PlaybackSettings = {
   fps: 12,
   loop: true,
-  isPlaying: true,
+  isPlaying: false,
   currentFrame: 0,
 };
 

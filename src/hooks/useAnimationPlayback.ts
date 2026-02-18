@@ -22,8 +22,13 @@ export const useAnimationPlayback = ({
   const rafRef = useRef<number>(0);
   const lastTickRef = useRef(0);
   const stateRef = useRef<PlaybackState>({ frameIndex: 0, tweenStep: 0, tweenProgress: 0 });
+  const onStateChangeRef = useRef(onStateChange);
 
   const maxTweenByFrame = useMemo(() => frames.map((frame) => Math.max(0, frame.tween?.tweenFrames ?? 0)), [frames]);
+
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
 
   useEffect(() => {
     if (!isPlaying || frames.length <= 0) return;
@@ -43,7 +48,10 @@ export const useAnimationPlayback = ({
       const segmentDuration = getSegmentDuration(frame);
       const elapsed = time - lastTickRef.current;
 
-      onStateChange({ ...currentState, tweenProgress: Math.min(1, elapsed / segmentDuration) });
+      onStateChangeRef.current({
+        ...currentState,
+        tweenProgress: Math.min(1, elapsed / segmentDuration),
+      });
 
       if (elapsed >= segmentDuration) {
         lastTickRef.current = time;
@@ -72,7 +80,7 @@ export const useAnimationPlayback = ({
           }
         }
 
-        onStateChange(stateRef.current);
+        onStateChangeRef.current(stateRef.current);
       }
 
       rafRef.current = requestAnimationFrame(tick);
@@ -84,11 +92,11 @@ export const useAnimationPlayback = ({
       cancelAnimationFrame(rafRef.current);
       lastTickRef.current = 0;
     };
-  }, [frames, isPlaying, loop, maxTweenByFrame, onStateChange]);
+  }, [frames, isPlaying, loop, maxTweenByFrame]);
 
   useEffect(() => {
     stateRef.current = { frameIndex: 0, tweenStep: 0, tweenProgress: 0 };
-    onStateChange(stateRef.current);
+    onStateChangeRef.current(stateRef.current);
     lastTickRef.current = 0;
-  }, [frames, onStateChange]);
+  }, [frames]);
 };
