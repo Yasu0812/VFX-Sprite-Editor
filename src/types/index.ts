@@ -10,8 +10,6 @@ export interface SpriteAsset {
 export interface GridSettings {
   frameWidth: number;
   frameHeight: number;
-  columns: number;
-  rows: number;
 }
 
 export interface FrameSelection {
@@ -66,8 +64,6 @@ export interface PivotPoint {
 export interface ExportConfig {
   frameWidth: number;
   frameHeight: number;
-  cols: number;
-  rows: number;
   fps: number;
   loop: boolean;
   pivotX: number;
