@@ -1,111 +1,104 @@
 # VFX Sprite Editor
 
-A lightweight, browser-based sprite editor with real-time visual effects (VFX) capabilities. Built with React, TypeScript, and HTML5 Canvas.
+VFX Sprite Editor は、**スプライトシートからアニメーション用フレーム情報を作成・調整し、JSON で書き出せる**ブラウザベースのツールです。  
+React + TypeScript + Canvas で実装されており、ローカルで軽快に動作します。
 
-## Features
+## 主な機能
 
-- 🎨 **Particle System**: Create customizable particle effects with control over count, speed, size, color, and lifetime
-- ✨ **Glow Effect**: Add glowing effects to sprites with adjustable color, blur, and intensity
-- 🌊 **Trail Effect**: Generate motion trails with configurable length and fade speed
-- 📁 **Easy Sprite Loading**: Load any image file to use as a sprite
-- 🎮 **Interactive Canvas**: Real-time preview with mouse interaction
-- 🔧 **Modular Architecture**: Clean, maintainable code structure
+- **PNG スプライトシート読み込み**
+  - PNG 画像をアップロードして、元解像度を維持したまま編集可能
+- **フレーム選択モード**
+  - 矩形ドラッグで任意領域を 1 フレームとして追加
+  - 列 / 行指定でセル単位のフレーム追加
+  - 「左上→右下」の一括追加にも対応
+- **グリッドとピボット編集**
+  - フレーム幅 / 高さの調整
+  - ピボットを正規化座標（0〜1）で管理
+- **トリミング / ビューポート制御**
+  - 透明領域の自動トリム
+  - マージン / アルファ閾値の調整
+  - オリジナル画像境界の表示切り替え
+- **再生プレビュー**
+  - Play / Pause、Loop、FPS 調整
+  - 先頭 / 末尾ジャンプ
+  - オニオンスキン表示
+- **フレーム詳細編集**
+  - duration（ms）
+  - scale / rotation / alpha
+  - tween（補間フレーム、scaleTo / rotationTo / alphaTo）
+  - 並び替え（Up / Down）・削除
+- **エクスポート**
+  - フレーム配列・再生設定・描画設定・トリム情報を含む JSON を出力
 
-## Tech Stack
+## 技術スタック
 
-- **React** (Functional Components & Hooks)
-- **TypeScript**
-- **HTML5 Canvas** (No heavy external VFX libraries)
-- **Vite** (Fast build tool)
-- No backend required - runs entirely in the browser
+- React 19
+- TypeScript 5
+- Vite 7
+- HTML5 Canvas
 
-## Getting Started
+## セットアップ
 
-### Prerequisites
+### 前提
 
-- Node.js (v16 or higher)
-- npm or yarn
+- Node.js 18 以上推奨
+- npm
 
-### Installation
+### インストールと起動
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
 ```
 
-## Usage
-
-1. **Load a Sprite**: Click the "Load Sprite Image" button and select an image file
-2. **Select an Effect**: Choose from Particle, Glow, or Trail effects
-3. **Adjust Settings**: Use the sliders to customize the effect parameters
-4. **Interact**:
-   - **Particle Effect**: Click on the canvas to emit particles, move mouse to change spawn point
-   - **Glow Effect**: Automatically applied to your sprite
-   - **Trail Effect**: Move your mouse over the canvas to create trails
-
-## Project Structure
-
-```
-src/
-├── components/           # React components
-│   ├── CanvasEditor.tsx # Main canvas component
-│   ├── ControlPanel.tsx # Effect controls UI
-│   └── SpriteLoader.tsx # Image loading component
-├── effects/             # VFX effect implementations
-│   ├── ParticleSystem.ts
-│   ├── GlowEffect.ts
-│   └── TrailEffect.ts
-├── types/               # TypeScript type definitions
-│   └── index.ts
-├── utils/               # Utility functions
-│   └── canvas.ts
-├── App.tsx             # Main application component
-└── main.tsx            # Application entry point
-```
-
-## Features in Detail
-
-### Particle System
-- Configurable particle count (1-50)
-- Adjustable speed (10-200)
-- Variable particle size (1-20)
-- Custom particle color
-- Lifetime control (0.5-5 seconds)
-
-### Glow Effect
-- Custom glow color
-- Blur intensity (5-50)
-- Overall intensity (0.1-1.0)
-- Real-time preview
-
-### Trail Effect
-- Trail length configuration (5-50 points)
-- Fade speed adjustment (0.1-2.0)
-- Mouse-based trail generation
-
-## Development
+## 利用可能なスクリプト
 
 ```bash
-# Run linter
-npm run lint
-
-# Build TypeScript
-npm run build
+npm run dev      # 開発サーバー起動
+npm run build    # TypeScript ビルド + 本番バンドル
+npm run lint     # ESLint
+npm run preview  # build成果物のプレビュー
 ```
 
-## License
+## 使い方（クイックスタート）
+
+1. **Upload PNG Sprite Sheet** で画像を読み込む
+2. 左ペインでフレームを選択して追加
+   - Rectangle Selection もしくは Column / Row Selection
+3. 右ペインで再生設定や各フレームのパラメータを調整
+4. **Export JSON** で設定を保存
+
+## 出力 JSON に含まれる主な情報
+
+- グリッド情報（frameWidth / frameHeight / cols / rows）
+- 再生情報（fps / loop）
+- ピボット（pivotX / pivotY）
+- 描画情報（blendMode / opacity / scale）
+- フレーム配列（位置・サイズ）
+- トリム情報（offset / width / height / margin）
+- rawFrames（duration / tween 等を含む詳細）
+
+## プロジェクト構成
+
+```text
+src/
+├── components/
+│   ├── SpriteLoader.tsx
+│   ├── GridOverlay.tsx
+│   ├── PreviewCanvas.tsx
+│   └── ControlsPanel.tsx
+├── hooks/
+│   └── useAnimationPlayback.ts
+├── utils/
+│   ├── canvasRender.ts
+│   ├── trimLogic.ts
+│   └── canvas.ts
+├── types/
+│   └── index.ts
+├── App.tsx
+└── main.tsx
+```
+
+## ライセンス
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
