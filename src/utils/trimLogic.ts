@@ -11,6 +11,26 @@ export const createFullTrim = (sprite: SpriteAsset, margin = 10, alphaThreshold 
   alphaThreshold,
 });
 
+export const normalizeTrimData = (sprite: SpriteAsset, trim: TrimData): TrimData => {
+  const safeMargin = Math.max(0, Math.floor(trim.margin));
+  const safeAlphaThreshold = clamp(Math.floor(trim.alphaThreshold), 0, 255);
+  const maxOffsetX = Math.max(0, sprite.width - 1);
+  const maxOffsetY = Math.max(0, sprite.height - 1);
+  const trimOffsetX = clamp(Math.floor(trim.trimOffsetX), 0, maxOffsetX);
+  const trimOffsetY = clamp(Math.floor(trim.trimOffsetY), 0, maxOffsetY);
+  const maxTrimWidth = Math.max(1, sprite.width - trimOffsetX);
+  const maxTrimHeight = Math.max(1, sprite.height - trimOffsetY);
+
+  return {
+    trimOffsetX,
+    trimOffsetY,
+    trimWidth: clamp(Math.floor(trim.trimWidth), 1, maxTrimWidth),
+    trimHeight: clamp(Math.floor(trim.trimHeight), 1, maxTrimHeight),
+    margin: safeMargin,
+    alphaThreshold: safeAlphaThreshold,
+  };
+};
+
 export const detectTrimBounds = (sprite: SpriteAsset, margin = 10, alphaThreshold = 0): TrimData => {
   const canvas = document.createElement('canvas');
   canvas.width = sprite.width;
@@ -52,21 +72,24 @@ export const detectTrimBounds = (sprite: SpriteAsset, margin = 10, alphaThreshol
   const endX = clamp(maxX + safeMargin, 0, width - 1);
   const endY = clamp(maxY + safeMargin, 0, height - 1);
 
-  return {
+  return normalizeTrimData(sprite, {
     trimOffsetX: startX,
     trimOffsetY: startY,
     trimWidth: Math.max(1, endX - startX + 1),
     trimHeight: Math.max(1, endY - startY + 1),
     margin: safeMargin,
-    alphaThreshold: clamp(Math.floor(alphaThreshold), 0, 255),
-  };
+    alphaThreshold,
+  });
 };
 
-export const getDisplayViewport = (sprite: SpriteAsset, trim: TrimData) => ({
-  x: clamp(Math.floor(trim.trimOffsetX), 0, Math.max(0, sprite.width - 1)),
-  y: clamp(Math.floor(trim.trimOffsetY), 0, Math.max(0, sprite.height - 1)),
-  width: clamp(Math.floor(trim.trimWidth), 1, sprite.width),
-  height: clamp(Math.floor(trim.trimHeight), 1, sprite.height),
-  originalWidth: sprite.width,
-  originalHeight: sprite.height,
-});
+export const getDisplayViewport = (sprite: SpriteAsset, trim: TrimData) => {
+  const normalized = normalizeTrimData(sprite, trim);
+  return {
+    x: normalized.trimOffsetX,
+    y: normalized.trimOffsetY,
+    width: normalized.trimWidth,
+    height: normalized.trimHeight,
+    originalWidth: sprite.width,
+    originalHeight: sprite.height,
+  };
+};

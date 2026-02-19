@@ -80,6 +80,45 @@ export const ControlsPanel = ({
 
       <div className="control-grid">
         <label>
+          Viewport X
+          <input
+            type="number"
+            min={0}
+            value={trim.trimOffsetX}
+            onChange={(e) => onTrimChange({ ...trim, trimOffsetX: Number(e.target.value) || 0 })}
+          />
+        </label>
+        <label>
+          Viewport Y
+          <input
+            type="number"
+            min={0}
+            value={trim.trimOffsetY}
+            onChange={(e) => onTrimChange({ ...trim, trimOffsetY: Number(e.target.value) || 0 })}
+          />
+        </label>
+        <label>
+          Viewport Width
+          <input
+            type="number"
+            min={1}
+            value={trim.trimWidth}
+            onChange={(e) => onTrimChange({ ...trim, trimWidth: Number(e.target.value) || 1 })}
+          />
+        </label>
+        <label>
+          Viewport Height
+          <input
+            type="number"
+            min={1}
+            value={trim.trimHeight}
+            onChange={(e) => onTrimChange({ ...trim, trimHeight: Number(e.target.value) || 1 })}
+          />
+        </label>
+      </div>
+
+      <div className="control-grid">
+        <label>
           Trim Margin (px)
           <input
             type="number"

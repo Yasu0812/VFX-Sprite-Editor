@@ -5,7 +5,7 @@ import { GridOverlay } from './components/GridOverlay';
 import { PreviewCanvas } from './components/PreviewCanvas';
 import { ControlsPanel } from './components/ControlsPanel';
 import { useAnimationPlayback } from './hooks/useAnimationPlayback';
-import { createFullTrim, detectTrimBounds, getDisplayViewport } from './utils/trimLogic';
+import { createFullTrim, detectTrimBounds, getDisplayViewport, normalizeTrimData } from './utils/trimLogic';
 import type { AnimationFrame, ExportConfig, GridSettings, PlaybackSettings, PivotPoint, PlaybackState, RenderSettings, SpriteAsset, TrimData } from './types';
 
 const defaultGrid: GridSettings = {
@@ -203,7 +203,13 @@ function App() {
             onGridChange={setGrid}
             onPlaybackChange={setPlayback}
             onRenderChange={setRender}
-            onTrimChange={setTrim}
+            onTrimChange={(nextTrim) => {
+              if (!sprite) {
+                setTrim(nextTrim);
+                return;
+              }
+              setTrim(normalizeTrimData(sprite, nextTrim));
+            }}
             onAutoTrim={() => {
               if (!sprite) return;
               setTrim(detectTrimBounds(sprite, trim.margin, trim.alphaThreshold));
