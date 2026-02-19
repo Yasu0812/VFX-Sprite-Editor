@@ -218,6 +218,27 @@ export const GridOverlay = ({
     }));
   };
 
+  const addFramesFromTopLeftToBottomRight = () => {
+    if (!sprite) return;
+    const maxColumn = Math.max(0, columnLimit - gridSelectionPixels.widthCells);
+    const maxRow = Math.max(0, rowLimit - gridSelectionPixels.heightCells);
+
+    for (let row = 0; row <= maxRow; row += 1) {
+      for (let column = 0; column <= maxColumn; column += 1) {
+        const x = column * grid.frameWidth;
+        const y = row * grid.frameHeight;
+        const maxPixelWidth = Math.max(1, viewportWidth - x);
+        const maxPixelHeight = Math.max(1, viewportHeight - y);
+        onAddFrame({
+          x,
+          y,
+          width: Math.max(1, Math.min(gridSelectionPixels.widthCells * grid.frameWidth, maxPixelWidth)),
+          height: Math.max(1, Math.min(gridSelectionPixels.heightCells * grid.frameHeight, maxPixelHeight)),
+        });
+      }
+    }
+  };
+
   const toCanvasPoint = (event: MouseEvent<HTMLCanvasElement>) => {
     if (!displayViewport) return null;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -382,6 +403,14 @@ export const GridOverlay = ({
             disabled={!sprite}
           >
             Add Frame from Column / Row
+          </button>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={addFramesFromTopLeftToBottomRight}
+            disabled={!sprite}
+          >
+            Add All Frames (Top-Left → Bottom-Right)
           </button>
         </>
       )}
