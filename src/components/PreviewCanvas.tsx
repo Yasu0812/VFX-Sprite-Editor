@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import type { AnimationFrame, PivotPoint, RenderSettings, SpriteAsset } from '../types';
+import type { AnimationFrame, DisplayViewport, PivotPoint, RenderSettings, SpriteAsset } from '../types';
 import { drawCheckerBackground } from '../utils/canvasRender';
 
 interface PreviewCanvasProps {
@@ -12,6 +12,7 @@ interface PreviewCanvasProps {
   };
   renderSettings: RenderSettings;
   pivot: PivotPoint;
+  displayViewport: DisplayViewport | null;
 }
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
@@ -22,6 +23,7 @@ export const PreviewCanvas = ({
   playhead,
   renderSettings,
   pivot,
+  displayViewport,
 }: PreviewCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -60,7 +62,7 @@ export const PreviewCanvas = ({
     ctx.clearRect(0, 0, width, height);
     drawCheckerBackground(ctx, width, height);
 
-    if (!sprite || !composedFrame) return;
+    if (!sprite || !composedFrame || !displayViewport) return;
 
     const centerX = width / 2;
     const centerY = height / 2;
@@ -80,8 +82,8 @@ export const PreviewCanvas = ({
     const destinationY = -drawH * pivot.y;
     ctx.drawImage(
       sprite.image,
-      source.x,
-      source.y,
+      source.x + displayViewport.x,
+      source.y + displayViewport.y,
       source.width,
       source.height,
       destinationX,
@@ -99,7 +101,7 @@ export const PreviewCanvas = ({
     ctx.moveTo(centerX, centerY - 10);
     ctx.lineTo(centerX, centerY + 10);
     ctx.stroke();
-  }, [composedFrame, pivot.x, pivot.y, renderSettings, sprite]);
+  }, [composedFrame, displayViewport, pivot.x, pivot.y, renderSettings, sprite]);
 
   return (
     <section className="panel">

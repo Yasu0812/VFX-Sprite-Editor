@@ -5,7 +5,8 @@ import { GridOverlay } from './components/GridOverlay';
 import { PreviewCanvas } from './components/PreviewCanvas';
 import { ControlsPanel } from './components/ControlsPanel';
 import { useAnimationPlayback } from './hooks/useAnimationPlayback';
-import type { AnimationFrame, ExportConfig, GridSettings, PlaybackSettings, PivotPoint, PlaybackState, RenderSettings, SpriteAsset } from './types';
+import { createFullTrim, detectTrimBounds, getDisplayViewport, normalizeTrimData } from './utils/trimLogic';
+import type { AnimationFrame, ExportConfig, GridSettings, PlaybackSettings, PivotPoint, PlaybackState, RenderSettings, SpriteAsset, TrimData } from './types';
 
 const defaultGrid: GridSettings = {
   frameWidth: 64,
@@ -29,6 +30,14 @@ const defaultRender: RenderSettings = {
 };
 
 const defaultPivot: PivotPoint = { x: 0.5, y: 0.5 };
+const defaultTrim: TrimData = {
+  trimOffsetX: 0,
+  trimOffsetY: 0,
+  trimWidth: 0,
+  trimHeight: 0,
+  margin: 10,
+  alphaThreshold: 0,
+};
 
 const fallbackDuration = (fps: number) => Math.max(16, Math.round(1000 / Math.max(1, fps)));
 
@@ -41,8 +50,16 @@ function App() {
   const [frames, setFrames] = useState<AnimationFrame[]>([]);
   const [editingFrameIndex, setEditingFrameIndex] = useState<number | null>(null);
   const [playhead, setPlayhead] = useState<PlaybackState>({ frameIndex: 0, tweenStep: 0, tweenProgress: 0 });
+  const [trim, setTrim] = useState<TrimData>(defaultTrim);
+  const [showOriginalBounds, setShowOriginalBounds] = useState<boolean>(true);
 
   const totalFrames = useMemo(() => frames.length, [frames.length]);
+
+  const displayViewport = useMemo(() => {
+    if (!sprite) return null;
+    if (trim.trimWidth <= 0 || trim.trimHeight <= 0) return getDisplayViewport(sprite, createFullTrim(sprite, trim.margin, trim.alphaThreshold));
+    return getDisplayViewport(sprite, trim);
+  }, [sprite, trim]);
 
   useAnimationPlayback({
     isPlaying: playback.isPlaying,
@@ -55,7 +72,22 @@ function App() {
   });
 
   const handleExport = () => {
-    const data: ExportConfig & { frames: AnimationFrame[] } = {
+    if (!sprite || !displayViewport) return;
+
+    const exportFrames = frames.map((frame) => ({
+      ...frame,
+      selection: {
+        ...frame.selection,
+        x: frame.selection.x + displayViewport.x,
+        y: frame.selection.y + displayViewport.y,
+      },
+    }));
+
+    const data: ExportConfig & {
+      frames: Array<{ x: number; y: number; width: number; height: number }>;
+      trim: { offsetX: number; offsetY: number; width: number; height: number; margin: number };
+      rawFrames: AnimationFrame[];
+    } = {
       frameWidth: grid.frameWidth,
       frameHeight: grid.frameHeight,
       cols: grid.columns,
@@ -67,7 +99,20 @@ function App() {
       blendMode: render.blendMode,
       opacity: render.opacity,
       scale: render.scale,
-      frames,
+      frames: exportFrames.map((frame) => ({
+        x: frame.selection.x,
+        y: frame.selection.y,
+        width: frame.selection.width,
+        height: frame.selection.height,
+      })),
+      trim: {
+        offsetX: displayViewport.x,
+        offsetY: displayViewport.y,
+        width: displayViewport.width,
+        height: displayViewport.height,
+        margin: trim.margin,
+      },
+      rawFrames: exportFrames,
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -102,6 +147,7 @@ function App() {
             setSprite(asset);
             setFrames([]);
             setEditingFrameIndex(null);
+            setTrim(createFullTrim(asset, defaultTrim.margin, defaultTrim.alphaThreshold));
           }} />
           <GridOverlay
             sprite={sprite}
@@ -110,6 +156,8 @@ function App() {
             frames={frames}
             activeFrameIndex={playback.currentFrame}
             editingFrameIndex={editingFrameIndex}
+            displayViewport={displayViewport}
+            showOriginalBounds={showOriginalBounds}
             onPivotChange={setPivot}
             onEditFrameSelection={(index, selection) => {
               setFrames((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, selection } : item)));
@@ -139,17 +187,37 @@ function App() {
             playhead={playhead}
             renderSettings={render}
             pivot={pivot}
+            displayViewport={displayViewport}
           />
           <ControlsPanel
             spriteSize={sprite ? { width: sprite.width, height: sprite.height } : null}
+            viewportSize={displayViewport ? { width: displayViewport.width, height: displayViewport.height } : null}
             grid={grid}
             playback={playback}
             render={render}
             pivot={pivot}
             frames={frames}
+            trim={trim}
+            showOriginalBounds={showOriginalBounds}
+            onShowOriginalBoundsChange={setShowOriginalBounds}
             onGridChange={setGrid}
             onPlaybackChange={setPlayback}
             onRenderChange={setRender}
+            onTrimChange={(nextTrim) => {
+              if (!sprite) {
+                setTrim(nextTrim);
+                return;
+              }
+              setTrim(normalizeTrimData(sprite, nextTrim));
+            }}
+            onAutoTrim={() => {
+              if (!sprite) return;
+              setTrim(detectTrimBounds(sprite, trim.margin, trim.alphaThreshold));
+            }}
+            onResetTrim={() => {
+              if (!sprite) return;
+              setTrim(createFullTrim(sprite, trim.margin, trim.alphaThreshold));
+            }}
             onFrameChange={(index, frame) => {
               setFrames((prev) => prev.map((item, itemIndex) => (itemIndex === index ? frame : item)));
             }}

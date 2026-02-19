@@ -76,3 +76,21 @@ export interface ExportConfig {
   opacity: number;
   scale: number;
 }
+
+export interface TrimData {
+  trimOffsetX: number;
+  trimOffsetY: number;
+  trimWidth: number;
+  trimHeight: number;
+  margin: number;
+  alphaThreshold: number;
+}
+
+export interface DisplayViewport {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  originalWidth: number;
+  originalHeight: number;
+}
