@@ -69,8 +69,11 @@ export const PreviewCanvas = ({
     const drawW = composedFrame.selection.width * renderSettings.scale * composedFrame.scale;
     const drawH = composedFrame.selection.height * renderSettings.scale * composedFrame.scale;
 
+    const frameOffsetX = composedFrame.offsetX ?? 0;
+    const frameOffsetY = composedFrame.offsetY ?? 0;
+
     ctx.save();
-    ctx.translate(centerX, centerY);
+    ctx.translate(centerX + frameOffsetX, centerY + frameOffsetY);
     ctx.rotate((composedFrame.rotation * Math.PI) / 180);
     ctx.scale(composedFrame.scale, composedFrame.scale);
     ctx.globalAlpha = Math.max(0, Math.min(1, composedFrame.alpha * renderSettings.opacity));

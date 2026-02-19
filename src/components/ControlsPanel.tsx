@@ -1,3 +1,4 @@
+import type { AlignmentMode } from '../utils/alignment';
 import type { AnimationFrame, BlendMode, GridSettings, PlaybackSettings, PivotPoint, RenderSettings, TrimData } from '../types';
 
 interface ControlsPanelProps {
@@ -17,6 +18,10 @@ interface ControlsPanelProps {
   onTrimChange: (trim: TrimData) => void;
   onAutoTrim: () => void;
   onResetTrim: () => void;
+  alignmentMode: AlignmentMode;
+  onAlignmentModeChange: (mode: AlignmentMode) => void;
+  onAutoCenterAlign: () => void;
+  onResetAlignment: () => void;
   onFrameChange: (index: number, frame: AnimationFrame) => void;
   onMoveFrame: (index: number, direction: 'up' | 'down') => void;
   onRemoveFrame: (index: number) => void;
@@ -46,6 +51,10 @@ export const ControlsPanel = ({
   onTrimChange,
   onAutoTrim,
   onResetTrim,
+  alignmentMode,
+  onAlignmentModeChange,
+  onAutoCenterAlign,
+  onResetAlignment,
   onFrameChange,
   onMoveFrame,
   onRemoveFrame,
@@ -142,6 +151,19 @@ export const ControlsPanel = ({
       <div className="playback-row">
         <button type="button" className="button secondary" onClick={onAutoTrim}>Auto Trim Transparent Area</button>
         <button type="button" className="button secondary" onClick={onResetTrim}>Reset Trim</button>
+      </div>
+
+      <label>
+        Alignment Mode
+        <select value={alignmentMode} onChange={(e) => onAlignmentModeChange(e.target.value as AlignmentMode)}>
+          <option value="average">Average Center</option>
+          <option value="first-frame">Use First Frame as Reference</option>
+        </select>
+      </label>
+
+      <div className="playback-row">
+        <button type="button" className="button secondary" onClick={onAutoCenterAlign}>Auto Center Align</button>
+        <button type="button" className="button secondary" onClick={onResetAlignment}>Reset Alignment</button>
       </div>
 
       <label className="checkbox">
