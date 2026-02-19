@@ -1,15 +1,22 @@
-import type { AnimationFrame, BlendMode, GridSettings, PlaybackSettings, PivotPoint, RenderSettings } from '../types';
+import type { AnimationFrame, BlendMode, GridSettings, PlaybackSettings, PivotPoint, RenderSettings, TrimData } from '../types';
 
 interface ControlsPanelProps {
   spriteSize: { width: number; height: number } | null;
+  viewportSize: { width: number; height: number } | null;
   grid: GridSettings;
   playback: PlaybackSettings;
   render: RenderSettings;
   pivot: PivotPoint;
   frames: AnimationFrame[];
+  trim: TrimData;
+  showOriginalBounds: boolean;
+  onShowOriginalBoundsChange: (next: boolean) => void;
   onGridChange: (grid: GridSettings) => void;
   onPlaybackChange: (next: PlaybackSettings) => void;
   onRenderChange: (next: RenderSettings) => void;
+  onTrimChange: (trim: TrimData) => void;
+  onAutoTrim: () => void;
+  onResetTrim: () => void;
   onFrameChange: (index: number, frame: AnimationFrame) => void;
   onMoveFrame: (index: number, direction: 'up' | 'down') => void;
   onRemoveFrame: (index: number) => void;
@@ -24,14 +31,21 @@ const blendModes: BlendMode[] = ['normal', 'screen', 'additive', 'multiply'];
 
 export const ControlsPanel = ({
   spriteSize,
+  viewportSize,
   grid,
   playback,
   render,
   pivot,
   frames,
+  trim,
+  showOriginalBounds,
+  onShowOriginalBoundsChange,
   onGridChange,
   onPlaybackChange,
   onRenderChange,
+  onTrimChange,
+  onAutoTrim,
+  onResetTrim,
   onFrameChange,
   onMoveFrame,
   onRemoveFrame,
@@ -62,6 +76,43 @@ export const ControlsPanel = ({
 
       <p className="muted">Frames in Sequence: <strong>{frames.length}</strong></p>
       <p className="muted">Sprite Size: <strong>{spriteSize ? `${spriteSize.width}×${spriteSize.height}` : 'No sprite loaded'}</strong></p>
+      <p className="muted">Viewport Size: <strong>{viewportSize ? `${viewportSize.width}×${viewportSize.height}` : 'No viewport'}</strong></p>
+
+      <div className="control-grid">
+        <label>
+          Trim Margin (px)
+          <input
+            type="number"
+            min={0}
+            value={trim.margin}
+            onChange={(e) => onTrimChange({ ...trim, margin: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+          />
+        </label>
+        <label>
+          Alpha Threshold (0-255)
+          <input
+            type="number"
+            min={0}
+            max={255}
+            value={trim.alphaThreshold}
+            onChange={(e) => onTrimChange({ ...trim, alphaThreshold: Math.max(0, Math.min(255, Math.floor(Number(e.target.value) || 0))) })}
+          />
+        </label>
+      </div>
+
+      <div className="playback-row">
+        <button type="button" className="button secondary" onClick={onAutoTrim}>Auto Trim Transparent Area</button>
+        <button type="button" className="button secondary" onClick={onResetTrim}>Reset Trim</button>
+      </div>
+
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={showOriginalBounds}
+          onChange={(e) => onShowOriginalBoundsChange(e.target.checked)}
+        />
+        Show original image bounds
+      </label>
 
       <div className="playback-row">
         <button type="button" className="button" onClick={() => onPlaybackChange({ ...playback, isPlaying: !playback.isPlaying })}>

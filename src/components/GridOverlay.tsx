@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import type { AnimationFrame, FrameSelection, GridSettings, PivotPoint, SpriteAsset } from '../types';
+import type { AnimationFrame, DisplayViewport, FrameSelection, GridSettings, PivotPoint, SpriteAsset } from '../types';
 
 interface GridOverlayProps {
   sprite: SpriteAsset | null;
@@ -8,6 +8,8 @@ interface GridOverlayProps {
   frames: AnimationFrame[];
   activeFrameIndex: number;
   editingFrameIndex?: number | null;
+  displayViewport: DisplayViewport | null;
+  showOriginalBounds: boolean;
   onPivotChange: (pivot: PivotPoint) => void;
   onAddFrame: (selection: FrameSelection) => void;
   onEditFrameSelection?: (frameIndex: number, selection: FrameSelection) => void;
@@ -30,11 +32,11 @@ interface GridSelectionState {
   heightCells: number;
 }
 
-const normalizeSelection = (drag: DragState, sprite: SpriteAsset): FrameSelection => {
+const normalizeSelection = (drag: DragState, viewport: DisplayViewport): FrameSelection => {
   const x = Math.max(0, Math.min(drag.startX, drag.currentX));
   const y = Math.max(0, Math.min(drag.startY, drag.currentY));
-  const right = Math.min(sprite.width, Math.max(drag.startX, drag.currentX));
-  const bottom = Math.min(sprite.height, Math.max(drag.startY, drag.currentY));
+  const right = Math.min(viewport.width, Math.max(drag.startX, drag.currentX));
+  const bottom = Math.min(viewport.height, Math.max(drag.startY, drag.currentY));
 
   return {
     x: Math.floor(x),
@@ -51,6 +53,8 @@ export const GridOverlay = ({
   frames,
   activeFrameIndex,
   editingFrameIndex = null,
+  displayViewport,
+  showOriginalBounds,
   onPivotChange,
   onAddFrame,
   onEditFrameSelection,
@@ -75,8 +79,10 @@ export const GridOverlay = ({
     return frame?.selection ?? null;
   }, [editingFrameIndex, frames]);
 
-  const columnLimit = Math.max(1, grid.columns);
-  const rowLimit = Math.max(1, grid.rows);
+  const viewportWidth = displayViewport?.width ?? 1;
+  const viewportHeight = displayViewport?.height ?? 1;
+  const columnLimit = Math.max(1, Math.ceil(viewportWidth / Math.max(1, grid.frameWidth)));
+  const rowLimit = Math.max(1, Math.ceil(viewportHeight / Math.max(1, grid.frameHeight)));
 
   const gridSelectionPixels = useMemo(() => {
     const column = Math.max(0, Math.min(columnLimit - 1, Math.floor(gridSelection.column)));
@@ -86,8 +92,8 @@ export const GridOverlay = ({
 
     const x = column * grid.frameWidth;
     const y = row * grid.frameHeight;
-    const maxPixelWidth = sprite ? Math.max(1, sprite.width - x) : widthCells * grid.frameWidth;
-    const maxPixelHeight = sprite ? Math.max(1, sprite.height - y) : heightCells * grid.frameHeight;
+    const maxPixelWidth = Math.max(1, viewportWidth - x);
+    const maxPixelHeight = Math.max(1, viewportHeight - y);
 
     return {
       x,
@@ -99,11 +105,11 @@ export const GridOverlay = ({
       widthCells,
       heightCells,
     };
-  }, [columnLimit, grid.frameHeight, grid.frameWidth, gridSelection.column, gridSelection.heightCells, gridSelection.row, gridSelection.widthCells, rowLimit, sprite]);
+  }, [columnLimit, grid.frameHeight, grid.frameWidth, gridSelection.column, gridSelection.heightCells, gridSelection.row, gridSelection.widthCells, rowLimit, viewportHeight, viewportWidth]);
 
   const liveSelection = useMemo(() => {
-    if (!sprite) return null;
-    if (drag) return normalizeSelection(drag, sprite);
+    if (!sprite || !displayViewport) return null;
+    if (drag) return normalizeSelection(drag, displayViewport);
     if (isEditing) return editingFrameSelection;
     if (selectionMode === 'grid') {
       return {
@@ -114,13 +120,16 @@ export const GridOverlay = ({
       };
     }
     return selection ?? activeFrameSelection;
-  }, [activeFrameSelection, drag, editingFrameSelection, gridSelectionPixels.height, gridSelectionPixels.width, gridSelectionPixels.x, gridSelectionPixels.y, isEditing, selection, selectionMode, sprite]);
+  }, [activeFrameSelection, displayViewport, drag, editingFrameSelection, gridSelectionPixels.height, gridSelectionPixels.width, gridSelectionPixels.x, gridSelectionPixels.y, isEditing, selection, selectionMode, sprite]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !displayViewport) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    canvas.width = displayViewport.width;
+    canvas.height = displayViewport.height;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#151821';
@@ -128,25 +137,40 @@ export const GridOverlay = ({
 
     if (!sprite) return;
 
-    canvas.width = sprite.width;
-    canvas.height = sprite.height;
+    ctx.drawImage(
+      sprite.image,
+      displayViewport.x,
+      displayViewport.y,
+      displayViewport.width,
+      displayViewport.height,
+      0,
+      0,
+      displayViewport.width,
+      displayViewport.height,
+    );
 
-    ctx.drawImage(sprite.image, 0, 0);
+    if (showOriginalBounds) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(190, 190, 190, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-displayViewport.x + 0.5, -displayViewport.y + 0.5, sprite.width, sprite.height);
+      ctx.restore();
+    }
 
     ctx.strokeStyle = 'rgba(122, 173, 255, 0.55)';
     ctx.lineWidth = 1;
 
-    for (let x = grid.frameWidth; x < sprite.width; x += grid.frameWidth) {
+    for (let x = grid.frameWidth; x < displayViewport.width; x += grid.frameWidth) {
       ctx.beginPath();
       ctx.moveTo(x + 0.5, 0);
-      ctx.lineTo(x + 0.5, sprite.height);
+      ctx.lineTo(x + 0.5, displayViewport.height);
       ctx.stroke();
     }
 
-    for (let y = grid.frameHeight; y < sprite.height; y += grid.frameHeight) {
+    for (let y = grid.frameHeight; y < displayViewport.height; y += grid.frameHeight) {
       ctx.beginPath();
       ctx.moveTo(0, y + 0.5);
-      ctx.lineTo(sprite.width, y + 0.5);
+      ctx.lineTo(displayViewport.width, y + 0.5);
       ctx.stroke();
     }
 
@@ -158,8 +182,8 @@ export const GridOverlay = ({
       ctx.strokeRect(liveSelection.x + 0.5, liveSelection.y + 0.5, liveSelection.width, liveSelection.height);
     }
 
-    const pivotX = pivot.x * sprite.width;
-    const pivotY = pivot.y * sprite.height;
+    const pivotX = pivot.x * displayViewport.width;
+    const pivotY = pivot.y * displayViewport.height;
 
     ctx.strokeStyle = '#ff7e7e';
     ctx.lineWidth = 2;
@@ -169,7 +193,7 @@ export const GridOverlay = ({
     ctx.moveTo(pivotX, pivotY - 8);
     ctx.lineTo(pivotX, pivotY + 8);
     ctx.stroke();
-  }, [grid.frameHeight, grid.frameWidth, liveSelection, pivot.x, pivot.y, sprite]);
+  }, [displayViewport, grid.frameHeight, grid.frameWidth, liveSelection, pivot.x, pivot.y, showOriginalBounds, sprite]);
 
   const updateGridSelection = (key: keyof GridSelectionState, rawValue: number) => {
     const safeValue = Number.isFinite(rawValue) ? Math.floor(rawValue) : 0;
@@ -195,13 +219,13 @@ export const GridOverlay = ({
   };
 
   const toCanvasPoint = (event: MouseEvent<HTMLCanvasElement>) => {
-    if (!sprite) return null;
+    if (!displayViewport) return null;
     const rect = event.currentTarget.getBoundingClientRect();
-    const scaleX = sprite.width / rect.width;
-    const scaleY = sprite.height / rect.height;
+    const scaleX = displayViewport.width / rect.width;
+    const scaleY = displayViewport.height / rect.height;
     return {
-      x: Math.max(0, Math.min(sprite.width, (event.clientX - rect.left) * scaleX)),
-      y: Math.max(0, Math.min(sprite.height, (event.clientY - rect.top) * scaleY)),
+      x: Math.max(0, Math.min(displayViewport.width, (event.clientX - rect.left) * scaleX)),
+      y: Math.max(0, Math.min(displayViewport.height, (event.clientY - rect.top) * scaleY)),
     };
   };
 
@@ -231,8 +255,8 @@ export const GridOverlay = ({
         <canvas
           ref={canvasRef}
           className="editor-canvas"
-          width={sprite?.width ?? 512}
-          height={sprite?.height ?? 512}
+          width={displayViewport?.width ?? 512}
+          height={displayViewport?.height ?? 512}
           onMouseDown={(event) => {
             if (!isEditing && selectionMode !== 'rectangle') return;
             const point = toCanvasPoint(event);
@@ -248,9 +272,9 @@ export const GridOverlay = ({
           onMouseUp={(event) => {
             if (!isEditing && selectionMode !== 'rectangle') return;
             const point = toCanvasPoint(event);
-            if (!point || !drag || !sprite) return;
+            if (!point || !drag || !displayViewport) return;
             const finalDrag = { ...drag, currentX: point.x, currentY: point.y };
-            const nextSelection = normalizeSelection(finalDrag, sprite);
+            const nextSelection = normalizeSelection(finalDrag, displayViewport);
             setSelection(nextSelection);
             setDrag(null);
 
