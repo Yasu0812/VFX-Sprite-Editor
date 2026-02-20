@@ -13,9 +13,11 @@ interface PreviewCanvasProps {
   renderSettings: RenderSettings;
   pivot: PivotPoint;
   displayViewport: DisplayViewport | null;
+  onPivotChange: (next: PivotPoint) => void;
 }
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
 export const PreviewCanvas = ({
   sprite,
@@ -24,8 +26,20 @@ export const PreviewCanvas = ({
   renderSettings,
   pivot,
   displayViewport,
+  onPivotChange,
 }: PreviewCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const draggingPivotRef = useRef(false);
+
+  const updatePivotFromPointer = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    onPivotChange({
+      x: clamp01((clientX - rect.left) / rect.width),
+      y: clamp01((clientY - rect.top) / rect.height),
+    });
+  };
 
   const composedFrame = useMemo(() => {
     const base = frames[playhead.frameIndex];
@@ -109,7 +123,34 @@ export const PreviewCanvas = ({
     <section className="panel">
       <h2>Animation Preview</h2>
       <div className="canvas-wrap">
-        <canvas ref={canvasRef} className="preview-canvas" width={360} height={360} />
+        <canvas
+          ref={canvasRef}
+          className="preview-canvas"
+          width={360}
+          height={360}
+          onPointerDown={(event) => {
+            if (!renderSettings.showPivot) return;
+            draggingPivotRef.current = true;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            updatePivotFromPointer(event.clientX, event.clientY);
+          }}
+          onPointerMove={(event) => {
+            if (!draggingPivotRef.current) return;
+            updatePivotFromPointer(event.clientX, event.clientY);
+          }}
+          onPointerUp={(event) => {
+            draggingPivotRef.current = false;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+          }}
+          onPointerCancel={(event) => {
+            draggingPivotRef.current = false;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+          }}
+        />
       </div>
     </section>
   );
