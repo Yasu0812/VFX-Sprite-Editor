@@ -66,6 +66,12 @@ export const PreviewCanvas = ({
     };
   }, [frames, playhead.frameIndex, playhead.tweenProgress, playhead.tweenStep]);
 
+  const previousFrame = useMemo(() => {
+    if (!renderSettings.onionSkin) return null;
+    if (playhead.frameIndex <= 0) return null;
+    return frames[playhead.frameIndex - 1] ?? null;
+  }, [frames, playhead.frameIndex, renderSettings.onionSkin]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -80,44 +86,52 @@ export const PreviewCanvas = ({
 
     const centerX = width / 2;
     const centerY = height / 2;
-    const drawW = composedFrame.selection.width * renderSettings.scale * composedFrame.scale;
-    const drawH = composedFrame.selection.height * renderSettings.scale * composedFrame.scale;
-
-    const frameOffsetX = composedFrame.offsetX ?? 0;
-    const frameOffsetY = composedFrame.offsetY ?? 0;
-
-    const source = composedFrame.selection;
-    const destinationX = -drawW * pivot.x;
-    const destinationY = -drawH * pivot.y;
-
-    ctx.save();
-    ctx.translate(centerX + frameOffsetX, centerY + frameOffsetY);
-    ctx.rotate((composedFrame.rotation * Math.PI) / 180);
-    ctx.scale(composedFrame.scale, composedFrame.scale);
-    ctx.globalAlpha = Math.max(0, Math.min(1, composedFrame.alpha * renderSettings.opacity));
     const blendModeMap = { normal: 'source-over', additive: 'lighter', screen: 'screen', multiply: 'multiply' } as const;
-    ctx.globalCompositeOperation = blendModeMap[renderSettings.blendMode];
-    ctx.drawImage(
-      sprite.image,
-      source.x + displayViewport.x,
-      source.y + displayViewport.y,
-      source.width,
-      source.height,
-      destinationX,
-      destinationY,
-      drawW,
-      drawH,
-    );
-    ctx.restore();
+
+    const drawFrame = (frame: AnimationFrame, alphaMultiplier: number) => {
+      const drawW = frame.selection.width * renderSettings.scale * frame.scale;
+      const drawH = frame.selection.height * renderSettings.scale * frame.scale;
+      const frameOffsetX = frame.offsetX ?? 0;
+      const frameOffsetY = frame.offsetY ?? 0;
+      const destinationX = -drawW * pivot.x;
+      const destinationY = -drawH * pivot.y;
+
+      ctx.save();
+      ctx.translate(centerX + frameOffsetX, centerY + frameOffsetY);
+      ctx.rotate((frame.rotation * Math.PI) / 180);
+      ctx.scale(frame.scale, frame.scale);
+      ctx.globalAlpha = Math.max(0, Math.min(1, frame.alpha * renderSettings.opacity * alphaMultiplier));
+      ctx.globalCompositeOperation = blendModeMap[renderSettings.blendMode];
+      ctx.drawImage(
+        sprite.image,
+        frame.selection.x + displayViewport.x,
+        frame.selection.y + displayViewport.y,
+        frame.selection.width,
+        frame.selection.height,
+        destinationX,
+        destinationY,
+        drawW,
+        drawH,
+      );
+      ctx.restore();
+
+      return { frameOffsetX, frameOffsetY, destinationX, destinationY, drawW, drawH };
+    };
+
+    if (previousFrame) {
+      drawFrame(previousFrame, 0.3);
+    }
+
+    const currentFrameLayout = drawFrame(composedFrame, 1);
 
     if (renderSettings.showPivot) {
-      const frameOriginX = centerX + frameOffsetX + destinationX;
-      const frameOriginY = centerY + frameOffsetY + destinationY;
-      const pivotCanvasX = frameOriginX + drawW * pivot.x;
-      const pivotCanvasY = frameOriginY + drawH * pivot.y;
+      const frameOriginX = centerX + currentFrameLayout.frameOffsetX + currentFrameLayout.destinationX;
+      const frameOriginY = centerY + currentFrameLayout.frameOffsetY + currentFrameLayout.destinationY;
+      const pivotCanvasX = frameOriginX + currentFrameLayout.drawW * pivot.x;
+      const pivotCanvasY = frameOriginY + currentFrameLayout.drawH * pivot.y;
       drawPivot(ctx, pivotCanvasX, pivotCanvasY);
     }
-  }, [composedFrame, displayViewport, pivot.x, pivot.y, renderSettings, sprite]);
+  }, [composedFrame, displayViewport, pivot.x, pivot.y, previousFrame, renderSettings, sprite]);
 
   return (
     <section className="panel">
