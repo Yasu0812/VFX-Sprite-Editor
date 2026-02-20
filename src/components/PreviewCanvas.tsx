@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { AnimationFrame, DisplayViewport, PivotPoint, RenderSettings, SpriteAsset } from '../types';
-import { drawCheckerBackground } from '../utils/canvasRender';
+import { drawCheckerBackground, drawPivot } from '../utils/canvasRender';
 
 interface PreviewCanvasProps {
   sprite: SpriteAsset | null;
@@ -13,9 +13,11 @@ interface PreviewCanvasProps {
   renderSettings: RenderSettings;
   pivot: PivotPoint;
   displayViewport: DisplayViewport | null;
+  onPivotChange: (pivot: PivotPoint) => void;
 }
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
 export const PreviewCanvas = ({
   sprite,
@@ -24,8 +26,10 @@ export const PreviewCanvas = ({
   renderSettings,
   pivot,
   displayViewport,
+  onPivotChange,
 }: PreviewCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isDraggingPivot, setIsDraggingPivot] = useState(false);
 
   const composedFrame = useMemo(() => {
     const base = frames[playhead.frameIndex];
@@ -52,6 +56,33 @@ export const PreviewCanvas = ({
     };
   }, [frames, playhead.frameIndex, playhead.tweenProgress, playhead.tweenStep]);
 
+  const updatePivotFromPointer = (event: MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !composedFrame || !sprite || !displayViewport) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    const frameOffsetX = composedFrame.offsetX ?? 0;
+    const frameOffsetY = composedFrame.offsetY ?? 0;
+
+    const baseDrawW = composedFrame.selection.width * renderSettings.scale;
+    const baseDrawH = composedFrame.selection.height * renderSettings.scale;
+    const finalDrawW = baseDrawW * composedFrame.scale;
+    const finalDrawH = baseDrawH * composedFrame.scale;
+
+    if (finalDrawW <= 0 || finalDrawH <= 0) return;
+
+    const frameTopLeftX = canvas.width / 2 + frameOffsetX - finalDrawW / 2;
+    const frameTopLeftY = canvas.height / 2 + frameOffsetY - finalDrawH / 2;
+
+    onPivotChange({
+      x: clamp01((mouseX - frameTopLeftX) / finalDrawW),
+      y: clamp01((mouseY - frameTopLeftY) / finalDrawH),
+    });
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -66,51 +97,66 @@ export const PreviewCanvas = ({
 
     const centerX = width / 2;
     const centerY = height / 2;
-    const drawW = composedFrame.selection.width * renderSettings.scale * composedFrame.scale;
-    const drawH = composedFrame.selection.height * renderSettings.scale * composedFrame.scale;
-
     const frameOffsetX = composedFrame.offsetX ?? 0;
     const frameOffsetY = composedFrame.offsetY ?? 0;
 
+    const baseDrawW = composedFrame.selection.width * renderSettings.scale;
+    const baseDrawH = composedFrame.selection.height * renderSettings.scale;
+    const finalDrawW = baseDrawW * composedFrame.scale;
+    const finalDrawH = baseDrawH * composedFrame.scale;
+
+    const frameTopLeftX = centerX + frameOffsetX - finalDrawW / 2;
+    const frameTopLeftY = centerY + frameOffsetY - finalDrawH / 2;
+    const pivotCanvasX = frameTopLeftX + finalDrawW * pivot.x;
+    const pivotCanvasY = frameTopLeftY + finalDrawH * pivot.y;
+
+    const source = composedFrame.selection;
+
     ctx.save();
-    ctx.translate(centerX + frameOffsetX, centerY + frameOffsetY);
+    ctx.translate(pivotCanvasX, pivotCanvasY);
     ctx.rotate((composedFrame.rotation * Math.PI) / 180);
     ctx.scale(composedFrame.scale, composedFrame.scale);
     ctx.globalAlpha = Math.max(0, Math.min(1, composedFrame.alpha * renderSettings.opacity));
     const blendModeMap = { normal: 'source-over', additive: 'lighter', screen: 'screen', multiply: 'multiply' } as const;
     ctx.globalCompositeOperation = blendModeMap[renderSettings.blendMode];
-
-    const source = composedFrame.selection;
-    const destinationX = -drawW * pivot.x;
-    const destinationY = -drawH * pivot.y;
     ctx.drawImage(
       sprite.image,
       source.x + displayViewport.x,
       source.y + displayViewport.y,
       source.width,
       source.height,
-      destinationX,
-      destinationY,
-      drawW,
-      drawH,
+      -baseDrawW * pivot.x,
+      -baseDrawH * pivot.y,
+      baseDrawW,
+      baseDrawH,
     );
     ctx.restore();
 
-    ctx.strokeStyle = '#ff7e7e';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(centerX - 10, centerY);
-    ctx.lineTo(centerX + 10, centerY);
-    ctx.moveTo(centerX, centerY - 10);
-    ctx.lineTo(centerX, centerY + 10);
-    ctx.stroke();
+    if (renderSettings.showPivot) {
+      drawPivot(ctx, pivotCanvasX, pivotCanvasY);
+    }
   }, [composedFrame, displayViewport, pivot.x, pivot.y, renderSettings, sprite]);
 
   return (
     <section className="panel">
       <h2>Animation Preview</h2>
       <div className="canvas-wrap">
-        <canvas ref={canvasRef} className="preview-canvas" width={360} height={360} />
+        <canvas
+          ref={canvasRef}
+          className="preview-canvas"
+          width={360}
+          height={360}
+          onMouseDown={(event) => {
+            setIsDraggingPivot(true);
+            updatePivotFromPointer(event);
+          }}
+          onMouseMove={(event) => {
+            if (!isDraggingPivot) return;
+            updatePivotFromPointer(event);
+          }}
+          onMouseUp={() => setIsDraggingPivot(false)}
+          onMouseLeave={() => setIsDraggingPivot(false)}
+        />
       </div>
     </section>
   );

@@ -29,6 +29,7 @@ const defaultRender: RenderSettings = {
   opacity: 1,
   scale: 1,
   onionSkin: false,
+  showPivot: true,
 };
 
 const defaultPivot: PivotPoint = { x: 0.5, y: 0.5 };
@@ -206,6 +207,7 @@ function App() {
             renderSettings={render}
             pivot={pivot}
             displayViewport={displayViewport}
+            onPivotChange={setPivot}
           />
           <ControlsPanel
             spriteSize={sprite ? { width: sprite.width, height: sprite.height } : null}
