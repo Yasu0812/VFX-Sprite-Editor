@@ -58,6 +58,7 @@ export interface RenderSettings {
   opacity: number;
   scale: number;
   onionSkin: boolean;
+  showPivot: boolean;
 }
 
 export interface PivotPoint {

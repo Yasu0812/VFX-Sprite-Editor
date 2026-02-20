@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { AnimationFrame, DisplayViewport, PivotPoint, RenderSettings, SpriteAsset } from '../types';
-import { drawCheckerBackground } from '../utils/canvasRender';
+import { drawCheckerBackground, drawPivot } from '../utils/canvasRender';
 
 interface PreviewCanvasProps {
   sprite: SpriteAsset | null;
@@ -72,6 +72,10 @@ export const PreviewCanvas = ({
     const frameOffsetX = composedFrame.offsetX ?? 0;
     const frameOffsetY = composedFrame.offsetY ?? 0;
 
+    const source = composedFrame.selection;
+    const destinationX = -drawW * pivot.x;
+    const destinationY = -drawH * pivot.y;
+
     ctx.save();
     ctx.translate(centerX + frameOffsetX, centerY + frameOffsetY);
     ctx.rotate((composedFrame.rotation * Math.PI) / 180);
@@ -79,10 +83,6 @@ export const PreviewCanvas = ({
     ctx.globalAlpha = Math.max(0, Math.min(1, composedFrame.alpha * renderSettings.opacity));
     const blendModeMap = { normal: 'source-over', additive: 'lighter', screen: 'screen', multiply: 'multiply' } as const;
     ctx.globalCompositeOperation = blendModeMap[renderSettings.blendMode];
-
-    const source = composedFrame.selection;
-    const destinationX = -drawW * pivot.x;
-    const destinationY = -drawH * pivot.y;
     ctx.drawImage(
       sprite.image,
       source.x + displayViewport.x,
@@ -96,14 +96,13 @@ export const PreviewCanvas = ({
     );
     ctx.restore();
 
-    ctx.strokeStyle = '#ff7e7e';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(centerX - 10, centerY);
-    ctx.lineTo(centerX + 10, centerY);
-    ctx.moveTo(centerX, centerY - 10);
-    ctx.lineTo(centerX, centerY + 10);
-    ctx.stroke();
+    if (renderSettings.showPivot) {
+      const frameOriginX = centerX + frameOffsetX + destinationX;
+      const frameOriginY = centerY + frameOffsetY + destinationY;
+      const pivotCanvasX = frameOriginX + drawW * pivot.x;
+      const pivotCanvasY = frameOriginY + drawH * pivot.y;
+      drawPivot(ctx, pivotCanvasX, pivotCanvasY);
+    }
   }, [composedFrame, displayViewport, pivot.x, pivot.y, renderSettings, sprite]);
 
   return (
