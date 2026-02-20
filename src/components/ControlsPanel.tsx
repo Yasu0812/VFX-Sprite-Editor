@@ -213,7 +213,7 @@ export const ControlsPanel = ({
           checked={render.onionSkin}
           onChange={(e) => onRenderChange({ ...render, onionSkin: e.target.checked })}
         />
-        Onion-skin first frame on last frame
+        Onion-skin previous frame
       </label>
 
       <label className="checkbox">

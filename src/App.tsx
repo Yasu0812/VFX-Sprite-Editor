@@ -155,7 +155,12 @@ function App() {
       if (playback.isPlaying || frames.length === 0) return;
 
       const activeElement = document.activeElement;
-      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement || activeElement?.isContentEditable) {
+      if (
+        activeElement instanceof HTMLInputElement
+        || activeElement instanceof HTMLTextAreaElement
+        || activeElement instanceof HTMLSelectElement
+        || (activeElement instanceof HTMLElement && activeElement.isContentEditable)
+      ) {
         return;
       }
 
