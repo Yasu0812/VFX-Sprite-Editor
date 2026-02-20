@@ -216,6 +216,15 @@ export const ControlsPanel = ({
         Onion-skin first frame on last frame
       </label>
 
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={render.showPivot}
+          onChange={(e) => onRenderChange({ ...render, showPivot: e.target.checked })}
+        />
+        Show Pivot
+      </label>
+
       <label>
         Blend Mode
         <select value={render.blendMode} onChange={(e) => onRenderChange({ ...render, blendMode: e.target.value as BlendMode })}>

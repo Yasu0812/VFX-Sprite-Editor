@@ -15,3 +15,17 @@ export const clampFrame = (frame: number, totalFrames: number) => {
   if (totalFrames <= 0) return 0;
   return Math.max(0, Math.min(frame, totalFrames - 1));
 };
+
+export const drawPivot = (ctx: CanvasRenderingContext2D, x: number, y: number, length = 10) => {
+  const half = length / 2;
+  ctx.save();
+  ctx.strokeStyle = '#ff4d4f';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - half, y);
+  ctx.lineTo(x + half, y);
+  ctx.moveTo(x, y - half);
+  ctx.lineTo(x, y + half);
+  ctx.stroke();
+  ctx.restore();
+};
