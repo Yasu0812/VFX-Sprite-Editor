@@ -35,6 +35,8 @@ export interface AnimationFrame {
   scale: number;
   rotation: number;
   alpha: number;
+  offsetX?: number;
+  offsetY?: number;
   tween?: TweenSettings;
 }
 

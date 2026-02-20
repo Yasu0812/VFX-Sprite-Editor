@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { SpriteLoader } from './components/SpriteLoader';
 import { GridOverlay } from './components/GridOverlay';
@@ -6,6 +6,8 @@ import { PreviewCanvas } from './components/PreviewCanvas';
 import { ControlsPanel } from './components/ControlsPanel';
 import { useAnimationPlayback } from './hooks/useAnimationPlayback';
 import { createFullTrim, detectTrimBounds, getDisplayViewport, normalizeTrimData } from './utils/trimLogic';
+import { applyAlignmentOffsets, calculateFrameCentroids, resetAlignmentOffsets } from './utils/alignment';
+import type { AlignmentMode, FrameCentroidResult } from './utils/alignment';
 import type { AnimationFrame, ExportConfig, GridSettings, PlaybackSettings, PivotPoint, PlaybackState, RenderSettings, SpriteAsset, TrimData } from './types';
 
 const defaultGrid: GridSettings = {
@@ -52,6 +54,9 @@ function App() {
   const [playhead, setPlayhead] = useState<PlaybackState>({ frameIndex: 0, tweenStep: 0, tweenProgress: 0 });
   const [trim, setTrim] = useState<TrimData>(defaultTrim);
   const [showOriginalBounds, setShowOriginalBounds] = useState<boolean>(true);
+
+  const [alignmentMode, setAlignmentMode] = useState<AlignmentMode>('average');
+  const centroidCacheRef = useRef<Map<string, FrameCentroidResult>>(new Map());
 
   const totalFrames = useMemo(() => frames.length, [frames.length]);
 
@@ -124,6 +129,16 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+
+  const handleAutoCenterAlign = useCallback(() => {
+    const centroids = calculateFrameCentroids(sprite, frames, displayViewport, trim.alphaThreshold, centroidCacheRef.current);
+    setFrames((prev) => applyAlignmentOffsets(prev, centroids, alignmentMode));
+  }, [alignmentMode, displayViewport, frames, sprite, trim.alphaThreshold]);
+
+  const handleResetAlignment = useCallback(() => {
+    setFrames((prev) => resetAlignmentOffsets(prev));
+  }, []);
+
   const onMoveFrame = useCallback((index: number, direction: 'up' | 'down') => {
     setFrames((prev) => {
       const next = [...prev];
@@ -146,6 +161,7 @@ function App() {
           <SpriteLoader onLoad={(asset) => {
             setSprite(asset);
             setFrames([]);
+            centroidCacheRef.current.clear();
             setEditingFrameIndex(null);
             setTrim(createFullTrim(asset, defaultTrim.margin, defaultTrim.alphaThreshold));
           }} />
@@ -173,6 +189,8 @@ function App() {
                   scale: 1,
                   rotation: 0,
                   alpha: 1,
+                  offsetX: 0,
+                  offsetY: 0,
                   tween: { tweenFrames: 0 },
                 },
               ]));
@@ -218,6 +236,10 @@ function App() {
               if (!sprite) return;
               setTrim(createFullTrim(sprite, trim.margin, trim.alphaThreshold));
             }}
+            alignmentMode={alignmentMode}
+            onAlignmentModeChange={setAlignmentMode}
+            onAutoCenterAlign={handleAutoCenterAlign}
+            onResetAlignment={handleResetAlignment}
             onFrameChange={(index, frame) => {
               setFrames((prev) => prev.map((item, itemIndex) => (itemIndex === index ? frame : item)));
             }}
