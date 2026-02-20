@@ -207,6 +207,7 @@ function App() {
             renderSettings={render}
             pivot={pivot}
             displayViewport={displayViewport}
+            onPivotChange={setPivot}
           />
           <ControlsPanel
             spriteSize={sprite ? { width: sprite.width, height: sprite.height } : null}
