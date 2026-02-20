@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { SpriteLoader } from './components/SpriteLoader';
 import { GridOverlay } from './components/GridOverlay';
@@ -149,6 +149,34 @@ function App() {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (playback.isPlaying || frames.length === 0) return;
+
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement || activeElement?.isContentEditable) {
+        return;
+      }
+
+      const isPrevious = event.key === 'a' || event.key === 'A' || event.key === 'ArrowLeft';
+      const isNext = event.key === 'd' || event.key === 'D' || event.key === 'ArrowRight';
+      if (!isPrevious && !isNext) return;
+
+      event.preventDefault();
+      setPlayhead((prev) => {
+        const maxIndex = frames.length - 1;
+        const nextIndex = isPrevious ? Math.max(0, prev.frameIndex - 1) : Math.min(maxIndex, prev.frameIndex + 1);
+        setPlayback((prevPlayback) => ({ ...prevPlayback, currentFrame: nextIndex }));
+        return { frameIndex: nextIndex, tweenStep: 0, tweenProgress: 0 };
+      });
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [frames.length, playback.isPlaying]);
 
   return (
     <main className="app-shell">
