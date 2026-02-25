@@ -241,6 +241,9 @@ function App() {
             pivot={pivot}
             displayViewport={displayViewport}
             onPivotChange={setPivot}
+            onFrameOffsetChange={(frameIndex, offsetX, offsetY) => {
+              setFrames((prev) => prev.map((frame, index) => (index === frameIndex ? { ...frame, offsetX, offsetY } : frame)));
+            }}
           />
           <ControlsPanel
             spriteSize={sprite ? { width: sprite.width, height: sprite.height } : null}
