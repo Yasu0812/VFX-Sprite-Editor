@@ -5,6 +5,7 @@ interface PlaybackArgs {
   isPlaying: boolean;
   loop: boolean;
   frames: AnimationFrame[];
+  state: PlaybackState;
   onStateChange: (next: PlaybackState) => void;
 }
 
@@ -17,6 +18,7 @@ export const useAnimationPlayback = ({
   isPlaying,
   loop,
   frames,
+  state,
   onStateChange,
 }: PlaybackArgs) => {
   const rafRef = useRef<number>(0);
@@ -29,6 +31,10 @@ export const useAnimationPlayback = ({
   useEffect(() => {
     onStateChangeRef.current = onStateChange;
   }, [onStateChange]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     if (!isPlaying || frames.length <= 0) return;
@@ -95,8 +101,25 @@ export const useAnimationPlayback = ({
   }, [frames, isPlaying, loop, maxTweenByFrame]);
 
   useEffect(() => {
-    stateRef.current = { frameIndex: 0, tweenStep: 0, tweenProgress: 0 };
+    if (frames.length <= 0) {
+      stateRef.current = { frameIndex: 0, tweenStep: 0, tweenProgress: 0 };
+      onStateChangeRef.current(stateRef.current);
+      lastTickRef.current = 0;
+      return;
+    }
+
+    const maxFrameIndex = frames.length - 1;
+    const clampedFrameIndex = Math.min(stateRef.current.frameIndex, maxFrameIndex);
+    const maxTween = maxTweenByFrame[clampedFrameIndex] ?? 0;
+    const clampedTweenStep = Math.min(stateRef.current.tweenStep, maxTween);
+
+    stateRef.current = {
+      frameIndex: clampedFrameIndex,
+      tweenStep: clampedTweenStep,
+      tweenProgress: stateRef.current.tweenProgress,
+    };
+
     onStateChangeRef.current(stateRef.current);
     lastTickRef.current = 0;
-  }, [frames]);
+  }, [frames, maxTweenByFrame]);
 };
