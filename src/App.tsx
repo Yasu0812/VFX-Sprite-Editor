@@ -71,6 +71,7 @@ function App() {
     isPlaying: playback.isPlaying,
     loop: playback.loop,
     frames,
+    state: playhead,
     onStateChange: (next) => {
       setPlayhead(next);
       setPlayback((prev) => ({ ...prev, currentFrame: next.frameIndex }));

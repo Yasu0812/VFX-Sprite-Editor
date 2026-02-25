@@ -5,6 +5,7 @@ interface PlaybackArgs {
   isPlaying: boolean;
   loop: boolean;
   frames: AnimationFrame[];
+  state: PlaybackState;
   onStateChange: (next: PlaybackState) => void;
 }
 
@@ -17,6 +18,7 @@ export const useAnimationPlayback = ({
   isPlaying,
   loop,
   frames,
+  state,
   onStateChange,
 }: PlaybackArgs) => {
   const rafRef = useRef<number>(0);
@@ -29,6 +31,10 @@ export const useAnimationPlayback = ({
   useEffect(() => {
     onStateChangeRef.current = onStateChange;
   }, [onStateChange]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     if (!isPlaying || frames.length <= 0) return;
